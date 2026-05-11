@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Papa from 'papaparse';
-import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare } from 'lucide-react';
+import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon } from 'lucide-react';
 import { storage } from './lib/storage.js';
+import { geoAlbersUsa, geoPath } from 'd3-geo';
+import { hexbin as d3Hexbin } from 'd3-hexbin';
+import { feature, mesh } from 'topojson-client';
+import statesTopo from 'us-atlas/states-10m.json';
 
 // ============================================================================
 // THE TOTAL — derived from the ABA Checklist v8.0.7 (Jan 2021, 1,120 species)
@@ -901,7 +905,8 @@ const SCI_TO_FAMILY = (() => {
 const STORAGE = {
   userCount: 'ebird:userCount',
   csvMeta: 'ebird:csvMeta',
-  seenSci: 'ebird:seenSci', // JSON array of scientific names the user has logged
+  seenSci: 'ebird:seenSci',
+  points: 'ebird:points',
 };
 
 // ---------- CSV parsing ----------
@@ -918,6 +923,8 @@ function parseEBirdCsv(file) {
           const sciKey = ['Scientific Name'].find(k => k in sample) || 'Scientific Name';
           const comKey = ['Common Name'].find(k => k in sample) || 'Common Name';
           const dateKey = ['Date'].find(k => k in sample) || 'Date';
+          const latKey = ['Latitude'].find(k => k in sample) || 'Latitude';
+          const lngKey = ['Longitude'].find(k => k in sample) || 'Longitude';
 
           const usRows = rows.filter(r => {
             const s = r[stateKey];
@@ -936,6 +943,7 @@ function parseEBirdCsv(file) {
 
           const allSpecies = new Set();
           const nativeSci = new Set();
+          const points = []; // [lng, lat] per countable US observation
           let earliest = null, latest = null;
           let totalObservations = 0;
 
@@ -947,6 +955,11 @@ function parseEBirdCsv(file) {
               allSpecies.add(sci || com);
               if (sci && NATIVE_SCI.has(sci)) {
                 nativeSci.add(sci);
+              }
+              const lat = parseFloat(r[latKey]);
+              const lng = parseFloat(r[lngKey]);
+              if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                points.push([lng, lat]);
               }
             }
             const dStr = r[dateKey];
@@ -963,6 +976,7 @@ function parseEBirdCsv(file) {
             count: nativeSci.size,
             allCount: allSpecies.size,
             seenSci: Array.from(nativeSci),
+            points,
             meta: {
               observations: totalObservations,
               earliest: earliest ? earliest.toISOString() : null,
@@ -970,6 +984,7 @@ function parseEBirdCsv(file) {
               fileName: file.name,
               updatedAt: new Date().toISOString(),
               allCount: allSpecies.size,
+              pointCount: points.length,
             },
           });
         } catch (e) {
@@ -1007,12 +1022,14 @@ export default function BirdLifeTracker() {
   const [userCount, setUserCount] = useState(null);
   const [csvMeta, setCsvMeta] = useState(null);
   const [seenSci, setSeenSci] = useState(() => new Set());
+  const [points, setPoints] = useState(null); // array of [lng, lat]
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showList, setShowList] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [progressAnim, setProgressAnim] = useState(0);
   const fileRef = useRef(null);
@@ -1020,14 +1037,16 @@ export default function BirdLifeTracker() {
   // hydrate from storage
   useEffect(() => {
     (async () => {
-      const [u, m, s] = await Promise.all([
+      const [u, m, s, p] = await Promise.all([
         storage.get(STORAGE.userCount),
         storage.get(STORAGE.csvMeta),
         storage.get(STORAGE.seenSci),
+        storage.get(STORAGE.points),
       ]);
       if (u) setUserCount(parseInt(u, 10));
       if (m) { try { setCsvMeta(JSON.parse(m)); } catch {} }
       if (s) { try { setSeenSci(new Set(JSON.parse(s))); } catch {} }
+      if (p) { try { setPoints(JSON.parse(p)); } catch {} }
       setHydrated(true);
     })();
   }, []);
@@ -1086,14 +1105,16 @@ export default function BirdLifeTracker() {
     setLoading(true);
     setError(null);
     try {
-      const { count, allCount, seenSci: nextSeen, meta } = await parseEBirdCsv(file);
+      const { count, allCount, seenSci: nextSeen, points: nextPoints, meta } = await parseEBirdCsv(file);
       const seenSet = new Set(nextSeen);
       setUserCount(count);
       setCsvMeta(meta);
       setSeenSci(seenSet);
+      setPoints(nextPoints);
       await storage.set(STORAGE.userCount, String(count));
       await storage.set(STORAGE.csvMeta, JSON.stringify(meta));
       await storage.set(STORAGE.seenSci, JSON.stringify(nextSeen));
+      await storage.set(STORAGE.points, JSON.stringify(nextPoints));
       const extra = allCount - count;
       const extraNote = extra > 0 ? ` (${extra} non-native or rare visitor${extra === 1 ? '' : 's'} excluded)` : '';
       setSuccess(`Counted ${count.toLocaleString()} of ${TOTAL} native species${extraNote}.`);
@@ -1105,15 +1126,17 @@ export default function BirdLifeTracker() {
   }
 
   async function resetAll() {
-    if (!confirm('Clear stored data (count, sightings, CSV summary)?')) return;
+    if (!confirm('Clear stored data (count, sightings, CSV summary, map)?')) return;
     await Promise.all([
       storage.del(STORAGE.userCount),
       storage.del(STORAGE.csvMeta),
       storage.del(STORAGE.seenSci),
+      storage.del(STORAGE.points),
     ]);
     setUserCount(null);
     setCsvMeta(null);
     setSeenSci(new Set());
+    setPoints(null);
     setSuccess('Cleared.');
   }
 
@@ -1316,8 +1339,8 @@ export default function BirdLifeTracker() {
               </div>
             </div>
 
-            {/* View list button — prominent under the progress bar */}
-            <div className="mt-6 anim-4 text-center">
+            {/* View buttons — prominent under the progress bar */}
+            <div className="mt-6 anim-4 text-center flex flex-wrap items-center justify-center gap-2">
               <button
                 onClick={() => setShowList(true)}
                 className="btn-ghost rounded-full px-5 py-2 text-sm inline-flex items-center gap-2"
@@ -1325,6 +1348,15 @@ export default function BirdLifeTracker() {
                 <List size={14} />
                 Browse all {TOTAL} species
               </button>
+              {points && points.length > 0 && (
+                <button
+                  onClick={() => setShowMap(true)}
+                  className="btn-ghost rounded-full px-5 py-2 text-sm inline-flex items-center gap-2"
+                >
+                  <MapIcon size={14} />
+                  Sightings map
+                </button>
+              )}
             </div>
 
             <div className="rule-dashed mt-12 mb-8 anim-5" />
@@ -1414,6 +1446,9 @@ export default function BirdLifeTracker() {
       {/* species list drawer */}
       {showList && <SpeciesListDrawer seenSci={seenSci} onClose={() => setShowList(false)} />}
 
+      {/* sightings map drawer */}
+      {showMap && <SightingsMapDrawer points={points || []} onClose={() => setShowMap(false)} />}
+
       {/* settings drawer */}
       {showSettings && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-[rgba(20,15,5,0.5)]" onClick={() => setShowSettings(false)}>
@@ -1451,6 +1486,14 @@ export default function BirdLifeTracker() {
             >
               Browse all {TOTAL} species →
             </button>
+            {points && points.length > 0 && (
+              <button
+                onClick={() => { setShowMap(true); setShowSettings(false); }}
+                className="font-display italic ink-soft hover:ink text-sm block mb-3"
+              >
+                Sightings map →
+              </button>
+            )}
             <button
               onClick={() => { setShowAbout(true); setShowSettings(false); }}
               className="font-display italic ink-soft hover:ink text-sm block mb-6"
@@ -1696,6 +1739,184 @@ function SpeciesListDrawer({ seenSci, onClose }) {
         <div className="relative px-6 py-3 border-t rule flex items-center justify-between">
           <span className="font-mono text-[10px] ink-faint tracking-wider uppercase">
             {totalShown} shown · {groups.length} {groups.length === 1 ? 'family' : 'families'}
+          </span>
+          <button onClick={onClose} className="btn-ghost rounded-full px-4 py-1.5 text-xs">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// Sightings map drawer — hexbin heatmap of observation locations
+// ============================================================================
+const STATES = feature(statesTopo, statesTopo.objects.states);
+const STATE_BORDERS = mesh(statesTopo, statesTopo.objects.states, (a, b) => a !== b);
+const NATION_BORDER = mesh(statesTopo, statesTopo.objects.states, (a, b) => a === b);
+
+// Albers USA projection sized for ~700×450 viewBox
+const MAP_W = 700;
+const MAP_H = 440;
+const PROJECTION = geoAlbersUsa().scale(900).translate([MAP_W / 2, MAP_H / 2]);
+const PATH = geoPath(PROJECTION);
+
+function SightingsMapDrawer({ points, onClose }) {
+  // Project every point and bin into hexagons.
+  const { bins, maxCount, projectedCount } = useMemo(() => {
+    const projected = [];
+    for (const [lng, lat] of points) {
+      const p = PROJECTION([lng, lat]);
+      if (p && !isNaN(p[0]) && !isNaN(p[1])) projected.push(p);
+    }
+    const hb = d3Hexbin()
+      .x((d) => d[0])
+      .y((d) => d[1])
+      .radius(10)
+      .extent([[0, 0], [MAP_W, MAP_H]]);
+    const bins = hb(projected);
+    const maxCount = bins.reduce((m, b) => Math.max(m, b.length), 0);
+    return { bins, maxCount, projectedCount: projected.length };
+  }, [points]);
+
+  // Hexagon SVG path (origin = center)
+  const hexPath = useMemo(() => {
+    return d3Hexbin().radius(10).hexagon();
+  }, []);
+
+  // Sequential moss-green scale: pale (low count) → deep moss (high count)
+  // We use opacity since color is consistent; map count to alpha.
+  const fillFor = (count) => {
+    // Log-ish scaling so a couple of mega-spots don't wash out everything else
+    const t = maxCount > 0 ? Math.log(count + 1) / Math.log(maxCount + 1) : 0;
+    // Alpha from 0.20 (light) to 0.85 (deep)
+    const alpha = 0.20 + 0.65 * t;
+    return `rgba(61, 82, 53, ${alpha.toFixed(3)})`;
+  };
+
+  // Stats
+  const totalSightings = points.length;
+  const distinctCells = bins.length;
+  const hottestCount = maxCount;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4 bg-[rgba(20,15,5,0.5)]" onClick={onClose}>
+      <div
+        className="max-w-3xl w-full relative flex flex-col"
+        style={{ background: '#f3ead8', boxShadow: '0 30px 80px rgba(0,0,0,0.3)', maxHeight: '92vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="grain absolute inset-0 pointer-events-none" />
+
+        {/* header */}
+        <div className="relative p-6 sm:p-8 pb-4 border-b rule">
+          <button onClick={onClose} className="absolute top-4 right-4 ink-soft hover:ink z-10">
+            <X size={18} />
+          </button>
+          <div className="font-mono text-[10px] ink-faint tracking-[0.25em] uppercase mb-1">Cartography</div>
+          <h2 className="font-display ink text-2xl sm:text-3xl mb-1">Where you've been</h2>
+          <p className="ink-soft text-sm italic">
+            <span className="moss font-mono not-italic" style={{ fontVariationSettings: "'wght' 500" }}>
+              {totalSightings.toLocaleString()}
+            </span> sightings
+            {' · '}
+            <span className="ink-faint font-mono not-italic">{distinctCells}</span> regions
+            {' · '}
+            density across the lower 48, Alaska & Hawaii
+          </p>
+        </div>
+
+        {/* map body */}
+        <div className="relative flex-1 overflow-auto p-2 sm:p-4">
+          {projectedCount === 0 ? (
+            <div className="text-center py-12 ink-faint text-sm italic">
+              No sightings with coordinates were found in your CSV.
+            </div>
+          ) : (
+            <div className="relative w-full">
+              <svg
+                viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-full h-auto"
+                style={{ background: 'transparent' }}
+              >
+                {/* State fills — very subtle so parchment shows through */}
+                <g>
+                  {STATES.features.map((s) => (
+                    <path
+                      key={s.id}
+                      d={PATH(s) || ''}
+                      fill="rgba(80,60,30,0.04)"
+                      stroke="none"
+                    />
+                  ))}
+                </g>
+
+                {/* Internal state borders */}
+                <path
+                  d={PATH(STATE_BORDERS) || ''}
+                  fill="none"
+                  stroke="rgba(80,60,30,0.30)"
+                  strokeWidth={0.5}
+                  strokeLinejoin="round"
+                />
+
+                {/* Outer border (slightly heavier) */}
+                <path
+                  d={PATH(NATION_BORDER) || ''}
+                  fill="none"
+                  stroke="rgba(80,60,30,0.50)"
+                  strokeWidth={0.9}
+                  strokeLinejoin="round"
+                />
+
+                {/* Hexbins */}
+                <g>
+                  {bins.map((b, i) => (
+                    <path
+                      key={i}
+                      d={hexPath}
+                      transform={`translate(${b.x.toFixed(2)},${b.y.toFixed(2)})`}
+                      fill={fillFor(b.length)}
+                      stroke="rgba(61,82,53,0.55)"
+                      strokeWidth={0.35}
+                    >
+                      <title>{b.length} sighting{b.length === 1 ? '' : 's'}</title>
+                    </path>
+                  ))}
+                </g>
+              </svg>
+
+              {/* Legend */}
+              <div className="mt-4 flex items-center justify-center gap-4 flex-wrap">
+                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Density</span>
+                <div className="flex items-center gap-1">
+                  {[0.2, 0.4, 0.6, 0.85].map((a, i) => (
+                    <span
+                      key={i}
+                      className="inline-block w-4 h-4"
+                      style={{
+                        background: `rgba(61,82,53,${a})`,
+                        clipPath: 'polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%)',
+                      }}
+                    />
+                  ))}
+                </div>
+                <span className="font-mono text-[10px] ink-soft">
+                  1 → {hottestCount.toLocaleString()} sightings
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* footer */}
+        <div className="relative px-6 py-3 border-t rule flex items-center justify-between">
+          <span className="font-mono text-[10px] ink-faint tracking-wider uppercase">
+            {projectedCount.toLocaleString()} of {totalSightings.toLocaleString()} sightings mapped
+            {projectedCount < totalSightings && ' (others outside lower 48 / AK / HI)'}
           </span>
           <button onClick={onClose} className="btn-ghost rounded-full px-4 py-1.5 text-xs">
             Close

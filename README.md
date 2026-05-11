@@ -102,6 +102,13 @@ regularly-occurring species.
 
 ---
 
+## Features
+
+- **774-species life list tracker** with progress bar and stats
+- **Browse all species** grouped by family in ABA taxonomic order, checkboxes show what you've seen
+- **Sightings heatmap** — hexbin density map showing where you've birded across the US (lower 48, Alaska, Hawaii)
+- All data stored locally in IndexedDB; nothing uploaded anywhere
+
 ## Tech notes
 
 - **Vite** for build and dev server
@@ -111,6 +118,7 @@ regularly-occurring species.
 - **IndexedDB** (via `src/lib/storage.js`) for persistent local storage
 - **PapaParse** for parsing the eBird CSV
 - **lucide-react** for icons
+- **d3-geo + d3-hexbin + topojson-client + us-atlas** for the sightings map (no external map tile server required — the US states topojson is bundled)
 
 The 774-species master list and family taxonomy are embedded in `src/App.jsx`
 as compile-time constants — no external data dependencies at runtime.
