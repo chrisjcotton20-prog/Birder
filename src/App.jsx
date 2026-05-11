@@ -3,8 +3,8 @@ import Papa from 'papaparse';
 import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon } from 'lucide-react';
 import { storage } from './lib/storage.js';
 import { geoAlbersUsa, geoPath } from 'd3-geo';
-import { hexbin as d3Hexbin } from 'd3-hexbin';
-import { feature, mesh } from 'topojson-client';
+import { contourDensity } from 'd3-contour';
+import { feature, mesh, merge } from 'topojson-client';
 import statesTopo from 'us-atlas/states-10m.json';
 
 // ============================================================================
@@ -1751,55 +1751,76 @@ function SpeciesListDrawer({ seenSci, onClose }) {
 
 
 // ============================================================================
-// Sightings map drawer — hexbin heatmap of observation locations
+// Sightings map drawer — kernel-density heatmap of observation locations
 // ============================================================================
 const STATES = feature(statesTopo, statesTopo.objects.states);
 const STATE_BORDERS = mesh(statesTopo, statesTopo.objects.states, (a, b) => a !== b);
 const NATION_BORDER = mesh(statesTopo, statesTopo.objects.states, (a, b) => a === b);
+// Merged US outline as a fillable MultiPolygon (for clipPath)
+const NATION_OUTLINE = merge(statesTopo, statesTopo.objects.states.geometries);
 
-// Albers USA projection sized for ~700×450 viewBox
+// Albers USA projection sized for a 700×440 viewBox
 const MAP_W = 700;
 const MAP_H = 440;
 const PROJECTION = geoAlbersUsa().scale(900).translate([MAP_W / 2, MAP_H / 2]);
 const PATH = geoPath(PROJECTION);
+// Identity path (no projection) for rendering contour features whose coords
+// are already in screen pixels.
+const PIXEL_PATH = geoPath();
+
+// Warm sequential color scale: pale buttery yellow → bright peach red.
+// `t` in [0, 1].  Piecewise-linear interpolation through five color stops,
+// with alpha that grows alongside the warmth so low-density areas stay soft
+// against the parchment.
+function heatColor(t) {
+  t = Math.max(0, Math.min(1, t));
+  // [R, G, B, A] stops
+  const stops = [
+    { at: 0.00, c: [254, 235, 145, 0.30] }, // pale buttery yellow
+    { at: 0.25, c: [252, 195,  90, 0.55] }, // warm yellow
+    { at: 0.50, c: [247, 145,  70, 0.75] }, // soft orange
+    { at: 0.75, c: [235, 100,  60, 0.85] }, // peach
+    { at: 1.00, c: [220,  65,  45, 0.92] }, // bright peach red
+  ];
+  for (let i = 1; i < stops.length; i++) {
+    if (t <= stops[i].at) {
+      const lo = stops[i - 1];
+      const hi = stops[i];
+      const u = (t - lo.at) / (hi.at - lo.at);
+      const c = lo.c.map((v, k) => v + (hi.c[k] - v) * u);
+      return `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${c[3].toFixed(3)})`;
+    }
+  }
+  const c = stops[stops.length - 1].c;
+  return `rgba(${c[0]},${c[1]},${c[2]},${c[3]})`;
+}
 
 function SightingsMapDrawer({ points, onClose }) {
-  // Project every point and bin into hexagons.
-  const { bins, maxCount, projectedCount } = useMemo(() => {
+  // Project points to pixel space, then run kernel density estimation.
+  const { contours, projectedCount, maxValue } = useMemo(() => {
     const projected = [];
     for (const [lng, lat] of points) {
       const p = PROJECTION([lng, lat]);
       if (p && !isNaN(p[0]) && !isNaN(p[1])) projected.push(p);
     }
-    const hb = d3Hexbin()
+    if (projected.length === 0) {
+      return { contours: [], projectedCount: 0, maxValue: 0 };
+    }
+    // Bandwidth controls smoothing — larger = more diffuse blobs.
+    // Thresholds = number of density levels rendered (higher = smoother gradient).
+    const dc = contourDensity()
       .x((d) => d[0])
       .y((d) => d[1])
-      .radius(10)
-      .extent([[0, 0], [MAP_W, MAP_H]]);
-    const bins = hb(projected);
-    const maxCount = bins.reduce((m, b) => Math.max(m, b.length), 0);
-    return { bins, maxCount, projectedCount: projected.length };
+      .size([MAP_W, MAP_H])
+      .cellSize(2)
+      .bandwidth(18)
+      .thresholds(24);
+    const cs = dc(projected);
+    const maxV = cs.length ? cs[cs.length - 1].value : 0;
+    return { contours: cs, projectedCount: projected.length, maxValue: maxV };
   }, [points]);
 
-  // Hexagon SVG path (origin = center)
-  const hexPath = useMemo(() => {
-    return d3Hexbin().radius(10).hexagon();
-  }, []);
-
-  // Sequential moss-green scale: pale (low count) → deep moss (high count)
-  // We use opacity since color is consistent; map count to alpha.
-  const fillFor = (count) => {
-    // Log-ish scaling so a couple of mega-spots don't wash out everything else
-    const t = maxCount > 0 ? Math.log(count + 1) / Math.log(maxCount + 1) : 0;
-    // Alpha from 0.20 (light) to 0.85 (deep)
-    const alpha = 0.20 + 0.65 * t;
-    return `rgba(61, 82, 53, ${alpha.toFixed(3)})`;
-  };
-
-  // Stats
   const totalSightings = points.length;
-  const distinctCells = bins.length;
-  const hottestCount = maxCount;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4 bg-[rgba(20,15,5,0.5)]" onClick={onClose}>
@@ -1818,13 +1839,11 @@ function SightingsMapDrawer({ points, onClose }) {
           <div className="font-mono text-[10px] ink-faint tracking-[0.25em] uppercase mb-1">Cartography</div>
           <h2 className="font-display ink text-2xl sm:text-3xl mb-1">Where you've been</h2>
           <p className="ink-soft text-sm italic">
-            <span className="moss font-mono not-italic" style={{ fontVariationSettings: "'wght' 500" }}>
+            <span className="font-mono not-italic" style={{ color: 'rgb(220, 65, 45)', fontVariationSettings: "'wght' 500" }}>
               {totalSightings.toLocaleString()}
             </span> sightings
             {' · '}
-            <span className="ink-faint font-mono not-italic">{distinctCells}</span> regions
-            {' · '}
-            density across the lower 48, Alaska & Hawaii
+            <span className="ink-faint">density across the lower 48, Alaska & Hawaii</span>
           </p>
         </div>
 
@@ -1842,7 +1861,15 @@ function SightingsMapDrawer({ points, onClose }) {
                 className="w-full h-auto"
                 style={{ background: 'transparent' }}
               >
-                {/* State fills — very subtle so parchment shows through */}
+                <defs>
+                  {/* Clip the heatmap to the US outline so density doesn't bleed
+                      over the ocean. */}
+                  <clipPath id="us-clip">
+                    <path d={PATH(NATION_OUTLINE) || ''} />
+                  </clipPath>
+                </defs>
+
+                {/* State fills — subtle so parchment shows through */}
                 <g>
                   {STATES.features.map((s) => (
                     <path
@@ -1854,59 +1881,53 @@ function SightingsMapDrawer({ points, onClose }) {
                   ))}
                 </g>
 
-                {/* Internal state borders */}
+                {/* Heatmap contours, clipped to country outline */}
+                <g clipPath="url(#us-clip)">
+                  {contours.map((c, i) => (
+                    <path
+                      key={i}
+                      d={PIXEL_PATH(c) || ''}
+                      fill={heatColor(maxValue > 0 ? c.value / maxValue : 0)}
+                      stroke="none"
+                    />
+                  ))}
+                </g>
+
+                {/* Internal state borders drawn on top of heatmap so states
+                    stay legible through hot zones */}
                 <path
                   d={PATH(STATE_BORDERS) || ''}
                   fill="none"
-                  stroke="rgba(80,60,30,0.30)"
+                  stroke="rgba(80,60,30,0.35)"
                   strokeWidth={0.5}
                   strokeLinejoin="round"
                 />
 
-                {/* Outer border (slightly heavier) */}
+                {/* Outer national border */}
                 <path
                   d={PATH(NATION_BORDER) || ''}
                   fill="none"
-                  stroke="rgba(80,60,30,0.50)"
+                  stroke="rgba(80,60,30,0.55)"
                   strokeWidth={0.9}
                   strokeLinejoin="round"
                 />
-
-                {/* Hexbins */}
-                <g>
-                  {bins.map((b, i) => (
-                    <path
-                      key={i}
-                      d={hexPath}
-                      transform={`translate(${b.x.toFixed(2)},${b.y.toFixed(2)})`}
-                      fill={fillFor(b.length)}
-                      stroke="rgba(61,82,53,0.55)"
-                      strokeWidth={0.35}
-                    >
-                      <title>{b.length} sighting{b.length === 1 ? '' : 's'}</title>
-                    </path>
-                  ))}
-                </g>
               </svg>
 
-              {/* Legend */}
-              <div className="mt-4 flex items-center justify-center gap-4 flex-wrap">
-                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Density</span>
-                <div className="flex items-center gap-1">
-                  {[0.2, 0.4, 0.6, 0.85].map((a, i) => (
-                    <span
-                      key={i}
-                      className="inline-block w-4 h-4"
-                      style={{
-                        background: `rgba(61,82,53,${a})`,
-                        clipPath: 'polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%)',
-                      }}
-                    />
-                  ))}
-                </div>
-                <span className="font-mono text-[10px] ink-soft">
-                  1 → {hottestCount.toLocaleString()} sightings
-                </span>
+              {/* Continuous gradient legend */}
+              <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
+                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Sparse</span>
+                <svg width="160" height="12" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
+                  <defs>
+                    <linearGradient id="legend-grad" x1="0" y1="0" x2="1" y2="0">
+                      {Array.from({ length: 21 }).map((_, i) => {
+                        const t = i / 20;
+                        return <stop key={i} offset={`${(t * 100).toFixed(0)}%`} stopColor={heatColor(t)} />;
+                      })}
+                    </linearGradient>
+                  </defs>
+                  <rect x="0" y="0" width="160" height="12" fill="url(#legend-grad)" stroke="rgba(80,60,30,0.30)" strokeWidth="0.5" />
+                </svg>
+                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Dense</span>
               </div>
             </div>
           )}
