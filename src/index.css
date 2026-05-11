@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Make standalone PWA fill the viewport including safe areas */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #f3ead8;
+  /* Prevent overscroll bounce showing white background on iOS */
+  overscroll-behavior-y: none;
+}
+#root {
+  min-height: 100vh;
+  /* Account for iOS safe areas in standalone mode */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
