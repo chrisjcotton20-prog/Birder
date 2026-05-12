@@ -1785,19 +1785,19 @@ const PATH = geoPath(PROJECTION);
 // are already in screen pixels.
 const PIXEL_PATH = geoPath();
 
-// Warm sequential color scale: pale buttery yellow → bright peach red.
-// `t` in [0, 1].  Piecewise-linear interpolation through five color stops,
-// with alpha that grows alongside the warmth so low-density areas stay soft
-// against the parchment.
+// Warm sequential color scale: saturated golden yellow → bright peach red.
+// `t` in [0, 1].  Piecewise-linear interpolation through five color stops.
+// Alpha is kept relatively high even at the low end so sparse regions still
+// register clearly against the parchment background.
 function heatColor(t) {
   t = Math.max(0, Math.min(1, t));
   // [R, G, B, A] stops
   const stops = [
-    { at: 0.00, c: [254, 235, 145, 0.30] }, // pale buttery yellow
-    { at: 0.25, c: [252, 195,  90, 0.55] }, // warm yellow
-    { at: 0.50, c: [247, 145,  70, 0.75] }, // soft orange
-    { at: 0.75, c: [235, 100,  60, 0.85] }, // peach
-    { at: 1.00, c: [220,  65,  45, 0.92] }, // bright peach red
+    { at: 0.00, c: [253, 218, 100, 0.60] }, // saturated golden yellow
+    { at: 0.25, c: [250, 175,  75, 0.72] }, // warm amber
+    { at: 0.50, c: [245, 140,  65, 0.82] }, // soft orange
+    { at: 0.75, c: [232,  95,  55, 0.88] }, // peach
+    { at: 1.00, c: [218,  60,  42, 0.92] }, // bright peach red
   ];
   for (let i = 1; i < stops.length; i++) {
     if (t <= stops[i].at) {
@@ -1839,7 +1839,7 @@ function SightingsMapDrawer({ points, onClose }) {
       .weight((d) => d[2])
       .size([MAP_W, MAP_H])
       .cellSize(2)
-      .bandwidth(6)
+      .bandwidth(5)
       .thresholds(28);
     const cs = dc(projected);
     const maxV = cs.length ? cs[cs.length - 1].value : 0;
