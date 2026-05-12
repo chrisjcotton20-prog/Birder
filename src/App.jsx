@@ -1806,15 +1806,15 @@ function SightingsMapDrawer({ points, onClose }) {
     if (projected.length === 0) {
       return { contours: [], projectedCount: 0, maxValue: 0 };
     }
-    // Bandwidth controls smoothing — larger = more diffuse blobs.
+    // Bandwidth controls smoothing — smaller = tighter, more localized blobs.
     // Thresholds = number of density levels rendered (higher = smoother gradient).
     const dc = contourDensity()
       .x((d) => d[0])
       .y((d) => d[1])
       .size([MAP_W, MAP_H])
       .cellSize(2)
-      .bandwidth(18)
-      .thresholds(24);
+      .bandwidth(6)
+      .thresholds(28);
     const cs = dc(projected);
     const maxV = cs.length ? cs[cs.length - 1].value : 0;
     return { contours: cs, projectedCount: projected.length, maxValue: maxV };
