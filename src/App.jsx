@@ -925,6 +925,7 @@ function parseEBirdCsv(file) {
           const dateKey = ['Date'].find(k => k in sample) || 'Date';
           const latKey = ['Latitude'].find(k => k in sample) || 'Latitude';
           const lngKey = ['Longitude'].find(k => k in sample) || 'Longitude';
+          const locIdKey = ['Location ID'].find(k => k in sample) || 'Location ID';
 
           const usRows = rows.filter(r => {
             const s = r[stateKey];
@@ -943,7 +944,8 @@ function parseEBirdCsv(file) {
 
           const allSpecies = new Set();
           const nativeSci = new Set();
-          const points = []; // [lng, lat] per countable US observation
+          // Group countable observations by location: locId -> { lng, lat, species: Set }
+          const locations = new Map();
           let earliest = null, latest = null;
           let totalObservations = 0;
 
@@ -952,14 +954,23 @@ function parseEBirdCsv(file) {
             const sci = (r[sciKey] || '').trim();
             const com = r[comKey];
             if (isCountable(sci, com)) {
-              allSpecies.add(sci || com);
+              const speciesKey = sci || com;
+              allSpecies.add(speciesKey);
               if (sci && NATIVE_SCI.has(sci)) {
                 nativeSci.add(sci);
               }
               const lat = parseFloat(r[latKey]);
               const lng = parseFloat(r[lngKey]);
               if (Number.isFinite(lat) && Number.isFinite(lng)) {
-                points.push([lng, lat]);
+                // Prefer eBird's Location ID; fall back to coordinate key
+                const locId = (r[locIdKey] && String(r[locIdKey]).trim()) ||
+                              `${lng.toFixed(5)},${lat.toFixed(5)}`;
+                let loc = locations.get(locId);
+                if (!loc) {
+                  loc = { lng, lat, species: new Set() };
+                  locations.set(locId, loc);
+                }
+                loc.species.add(speciesKey);
               }
             }
             const dStr = r[dateKey];
@@ -970,6 +981,12 @@ function parseEBirdCsv(file) {
                 if (!latest || d > latest) latest = d;
               }
             }
+          }
+
+          // Output: one tuple per unique location, [lng, lat, uniqueSpeciesCount]
+          const points = [];
+          for (const loc of locations.values()) {
+            points.push([loc.lng, loc.lat, loc.species.size]);
           }
 
           resolve({
@@ -984,7 +1001,7 @@ function parseEBirdCsv(file) {
               fileName: file.name,
               updatedAt: new Date().toISOString(),
               allCount: allSpecies.size,
-              pointCount: points.length,
+              locationCount: points.length,
             },
           });
         } catch (e) {
@@ -1796,31 +1813,54 @@ function heatColor(t) {
 }
 
 function SightingsMapDrawer({ points, onClose }) {
-  // Project points to pixel space, then run kernel density estimation.
-  const { contours, projectedCount, maxValue } = useMemo(() => {
+  // Project points to pixel space. Each point is [lng, lat, weight] where
+  // weight is unique species count at that location. Older data stored as
+  // [lng, lat] is handled by defaulting weight to 1.
+  const { contours, projectedCount, maxValue, totalSpeciesAcrossLocations, totalLocations } = useMemo(() => {
     const projected = [];
-    for (const [lng, lat] of points) {
-      const p = PROJECTION([lng, lat]);
-      if (p && !isNaN(p[0]) && !isNaN(p[1])) projected.push(p);
+    let totalW = 0;
+    for (const p of points) {
+      const lng = p[0], lat = p[1];
+      const w = (p.length >= 3 && Number.isFinite(p[2])) ? p[2] : 1;
+      const xy = PROJECTION([lng, lat]);
+      if (xy && !isNaN(xy[0]) && !isNaN(xy[1])) {
+        projected.push([xy[0], xy[1], w]);
+        totalW += w;
+      }
     }
     if (projected.length === 0) {
-      return { contours: [], projectedCount: 0, maxValue: 0 };
+      return { contours: [], projectedCount: 0, maxValue: 0, totalSpeciesAcrossLocations: 0, totalLocations: 0 };
     }
-    // Bandwidth controls smoothing — smaller = tighter, more localized blobs.
-    // Thresholds = number of density levels rendered (higher = smoother gradient).
+    // Density estimation weighted by species count per location.
+    // Bandwidth tuned for hotspot-level resolution; thresholds for smooth gradient.
     const dc = contourDensity()
       .x((d) => d[0])
       .y((d) => d[1])
+      .weight((d) => d[2])
       .size([MAP_W, MAP_H])
       .cellSize(2)
       .bandwidth(6)
       .thresholds(28);
     const cs = dc(projected);
     const maxV = cs.length ? cs[cs.length - 1].value : 0;
-    return { contours: cs, projectedCount: projected.length, maxValue: maxV };
+    return {
+      contours: cs,
+      projectedCount: projected.length,
+      maxValue: maxV,
+      totalSpeciesAcrossLocations: totalW,
+      totalLocations: projected.length,
+    };
   }, [points]);
 
-  const totalSightings = points.length;
+  // Highest single-location diversity (useful in the header)
+  const peakDiversity = useMemo(() => {
+    let m = 0;
+    for (const p of points) {
+      const w = (p.length >= 3 && Number.isFinite(p[2])) ? p[2] : 1;
+      if (w > m) m = w;
+    }
+    return m;
+  }, [points]);
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4 bg-[rgba(20,15,5,0.5)]" onClick={onClose}>
@@ -1837,13 +1877,19 @@ function SightingsMapDrawer({ points, onClose }) {
             <X size={18} />
           </button>
           <div className="font-mono text-[10px] ink-faint tracking-[0.25em] uppercase mb-1">Cartography</div>
-          <h2 className="font-display ink text-2xl sm:text-3xl mb-1">Where you've been</h2>
+          <h2 className="font-display ink text-2xl sm:text-3xl mb-1">Where you've found birds</h2>
           <p className="ink-soft text-sm italic">
             <span className="font-mono not-italic" style={{ color: 'rgb(220, 65, 45)', fontVariationSettings: "'wght' 500" }}>
-              {totalSightings.toLocaleString()}
-            </span> sightings
-            {' · '}
-            <span className="ink-faint">density across the lower 48, Alaska & Hawaii</span>
+              {totalLocations.toLocaleString()}
+            </span> locations
+            {peakDiversity > 0 && (
+              <>
+                {' · peak '}
+                <span className="font-mono not-italic ink">{peakDiversity}</span> species at one spot
+              </>
+            )}
+            <br />
+            <span className="ink-faint">density weighted by species variety</span>
           </p>
         </div>
 
@@ -1851,7 +1897,7 @@ function SightingsMapDrawer({ points, onClose }) {
         <div className="relative flex-1 overflow-auto p-2 sm:p-4">
           {projectedCount === 0 ? (
             <div className="text-center py-12 ink-faint text-sm italic">
-              No sightings with coordinates were found in your CSV.
+              No locations with coordinates were found in your CSV.
             </div>
           ) : (
             <div className="relative w-full">
@@ -1862,8 +1908,6 @@ function SightingsMapDrawer({ points, onClose }) {
                 style={{ background: 'transparent' }}
               >
                 <defs>
-                  {/* Clip the heatmap to the US outline so density doesn't bleed
-                      over the ocean. */}
                   <clipPath id="us-clip">
                     <path d={PATH(NATION_OUTLINE) || ''} />
                   </clipPath>
@@ -1893,8 +1937,7 @@ function SightingsMapDrawer({ points, onClose }) {
                   ))}
                 </g>
 
-                {/* Internal state borders drawn on top of heatmap so states
-                    stay legible through hot zones */}
+                {/* Internal state borders on top of heatmap so states stay legible */}
                 <path
                   d={PATH(STATE_BORDERS) || ''}
                   fill="none"
@@ -1915,7 +1958,7 @@ function SightingsMapDrawer({ points, onClose }) {
 
               {/* Continuous gradient legend */}
               <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
-                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Sparse</span>
+                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Few species</span>
                 <svg width="160" height="12" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
                   <defs>
                     <linearGradient id="legend-grad" x1="0" y1="0" x2="1" y2="0">
@@ -1927,7 +1970,7 @@ function SightingsMapDrawer({ points, onClose }) {
                   </defs>
                   <rect x="0" y="0" width="160" height="12" fill="url(#legend-grad)" stroke="rgba(80,60,30,0.30)" strokeWidth="0.5" />
                 </svg>
-                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Dense</span>
+                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Many species</span>
               </div>
             </div>
           )}
@@ -1936,8 +1979,8 @@ function SightingsMapDrawer({ points, onClose }) {
         {/* footer */}
         <div className="relative px-6 py-3 border-t rule flex items-center justify-between">
           <span className="font-mono text-[10px] ink-faint tracking-wider uppercase">
-            {projectedCount.toLocaleString()} of {totalSightings.toLocaleString()} sightings mapped
-            {projectedCount < totalSightings && ' (others outside lower 48 / AK / HI)'}
+            {projectedCount.toLocaleString()} of {points.length.toLocaleString()} locations mapped
+            {projectedCount < points.length && ' (others outside lower 48 / AK / HI)'}
           </span>
           <button onClick={onClose} className="btn-ghost rounded-full px-4 py-1.5 text-xs">
             Close
