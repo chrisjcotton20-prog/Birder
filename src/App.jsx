@@ -1832,11 +1832,14 @@ function SightingsMapDrawer({ points, onClose }) {
       return { contours: [], projectedCount: 0, maxValue: 0, totalSpeciesAcrossLocations: 0, totalLocations: 0 };
     }
     // Density estimation weighted by species count per location.
-    // Bandwidth tuned for hotspot-level resolution; thresholds for smooth gradient.
+    // We sqrt-transform the weights so the gap between a 60-species home park
+    // and a 3-species memorable travel spot is compressed enough that both
+    // show up on the map. Relative ordering is preserved — bigger locations
+    // still read as brighter — just on a more humane scale.
     const dc = contourDensity()
       .x((d) => d[0])
       .y((d) => d[1])
-      .weight((d) => d[2])
+      .weight((d) => Math.sqrt(d[2]))
       .size([MAP_W, MAP_H])
       .cellSize(2)
       .bandwidth(5)
