@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Papa from 'papaparse';
-import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon } from 'lucide-react';
+import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon, ChevronRight, Share2, Plus, Download } from 'lucide-react';
 import { storage } from './lib/storage.js';
 import { geoAlbersUsa, geoPath } from 'd3-geo';
 import { contourDensity } from 'd3-contour';
@@ -1152,10 +1152,97 @@ export default function BirdLifeTracker() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showList, setShowList] = useState(false);
+  const [showFamilies, setShowFamilies] = useState(false);
+  // When non-null, the species list drawer is opened in a scoped view
+  // (e.g. only Code 3 birds, or only species in one family).
+  const [listFilter, setListFilter] = useState(null);
   const [showMap, setShowMap] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
+  // Deferred install prompt from Chrome/Edge/Samsung Internet — captured at
+  // load time, fired only when the user clicks our install button. iOS Safari
+  // never produces this event so we fall back to manual instructions there.
+  const [installPrompt, setInstallPrompt] = useState(null);
+  // True once the user has accepted the prompt (or if the app is already
+  // running in standalone mode). We hide the install UI in both cases.
+  const [isInstalled, setIsInstalled] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [progressAnim, setProgressAnim] = useState(0);
   const fileRef = useRef(null);
+
+  // Detect "already installed" state on mount + when display-mode changes.
+  useEffect(() => {
+    const check = () => {
+      const standalone =
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        window.navigator.standalone === true;
+      setIsInstalled(standalone);
+    };
+    check();
+    const mq = window.matchMedia('(display-mode: standalone)');
+    mq.addEventListener?.('change', check);
+    return () => mq.removeEventListener?.('change', check);
+  }, []);
+
+  // Capture beforeinstallprompt so we can fire it on demand.
+  useEffect(() => {
+    function onBeforeInstall(e) {
+      e.preventDefault();
+      setInstallPrompt(e);
+    }
+    function onInstalled() {
+      setInstallPrompt(null);
+      setIsInstalled(true);
+    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
+  async function handleInstall() {
+    // If Chrome/Edge handed us a deferred prompt, fire it now.
+    if (installPrompt) {
+      try {
+        installPrompt.prompt();
+        const choice = await installPrompt.userChoice;
+        if (choice?.outcome === 'accepted') {
+          setInstallPrompt(null);
+        }
+      } catch (e) {
+        // Some browsers throw if prompt() is called twice — open the manual
+        // instructions as a fallback.
+        setShowInstall(true);
+      }
+    } else {
+      // iOS Safari or browser without prompt support → show the tutorial.
+      setShowInstall(true);
+    }
+  }
+
+  // ---- open-helpers for the species list drawer ----
+  function openAllSpecies() {
+    setListFilter(null);
+    setShowList(true);
+  }
+  function openCode3List() {
+    setListFilter({
+      title: 'Rare Bird Finds',
+      eyebrow: 'ABA Code 3',
+      subtitle: 'rare but annual',
+      restrictFn: (sci) => CODE_3_SCI.has(sci),
+    });
+    setShowList(true);
+  }
+  function openFamilyList(family) {
+    setListFilter({
+      title: family,
+      eyebrow: 'Family',
+      restrictFn: (sci) => SCI_TO_FAMILY.get(sci) === family,
+    });
+    setShowList(true);
+  }
 
   // hydrate from storage
   useEffect(() => {
@@ -1435,8 +1522,20 @@ export default function BirdLifeTracker() {
               </div>
             </div>
 
+            {!isInstalled && (
+              <div className="mt-6 mb-3 text-center">
+                <button
+                  onClick={handleInstall}
+                  className="btn-ghost rounded-full px-5 py-2 text-xs inline-flex items-center gap-2"
+                >
+                  <Plus size={14} strokeWidth={2.5} />
+                  Add CENSUS to your home screen
+                </button>
+              </div>
+            )}
+
             <div className="text-center text-xs ink-faint flex items-center justify-center gap-3 flex-wrap">
-              <button onClick={() => setShowList(true)} className="hover:ink transition-colors">
+              <button onClick={openAllSpecies} className="hover:ink transition-colors">
                 Browse the list of {TOTAL}
               </button>
               <span>·</span>
@@ -1518,17 +1617,31 @@ export default function BirdLifeTracker() {
                   {csvMeta ? fmt(csvMeta.observations) : '—'}
                 </div>
               </div>
-              <div className="surface-1 rounded-2xl p-4">
-                <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2">Families seen</div>
+              <button
+                onClick={() => setShowFamilies(true)}
+                className="surface-1 rounded-2xl p-4 text-left lift relative group"
+                aria-label="View all 81 bird families"
+              >
+                <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2 flex items-center justify-between">
+                  <span>Families seen</span>
+                  <ChevronRight size={12} className="ink-faint group-hover:ink-soft transition-colors" />
+                </div>
                 <div className="font-display ink leading-none" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
                   {familiesSeen}
                   <span className="ink-faint" style={{ fontSize: '0.7em', fontWeight: 500, marginLeft: '0.15em' }}>
                     / {TOTAL_FAMILIES}
                   </span>
                 </div>
-              </div>
-              <div className="surface-1 rounded-2xl p-4">
-                <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2">Rare bird finds</div>
+              </button>
+              <button
+                onClick={openCode3List}
+                className="surface-1 rounded-2xl p-4 text-left lift relative group"
+                aria-label="View the 101 rare-but-annual Code 3 species"
+              >
+                <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2 flex items-center justify-between">
+                  <span>Rare bird finds</span>
+                  <ChevronRight size={12} className="ink-faint group-hover:ink-soft transition-colors" />
+                </div>
                 <div className="font-display ink leading-none" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
                   {code3Seen}
                   <span className="ink-faint" style={{ fontSize: '0.7em', fontWeight: 500, marginLeft: '0.15em' }}>
@@ -1536,7 +1649,7 @@ export default function BirdLifeTracker() {
                   </span>
                 </div>
                 <div className="font-mono text-[9px] ink-faint tracking-wider mt-1">ABA Code 3</div>
-              </div>
+              </button>
               <div className="surface-1 rounded-2xl p-4">
                 <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2">First sighting</div>
                 <div className="font-display ink" style={{ fontSize: '0.95rem', fontWeight: 500 }}>
@@ -1564,8 +1677,14 @@ export default function BirdLifeTracker() {
             <div className="mt-10 pt-6 border-t rule flex flex-wrap items-center justify-between gap-4 anim-5">
               <div className="font-mono text-[10px] ink-faint tracking-wider">
                 <div>Updated <span className="ink-soft">{csvMeta ? relativeTime(csvMeta.updatedAt) : '—'}</span></div>
-                <div className="mt-0.5">
+                <div className="mt-0.5 flex items-center gap-2 flex-wrap">
                   <button onClick={() => setShowAbout(true)} className="ink-soft hover:ink transition-colors">about the {TOTAL}</button>
+                  {!isInstalled && (
+                    <>
+                      <span className="ink-faint">·</span>
+                      <button onClick={handleInstall} className="ink-soft hover:ink transition-colors">add to home screen</button>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1616,11 +1735,31 @@ export default function BirdLifeTracker() {
         </div>
       )}
 
-      {/* species list drawer */}
-      {showList && <SpeciesListDrawer seenSci={seenSci} onClose={() => setShowList(false)} />}
+      {/* families drawer — rendered first so the species drawer (when both are
+          open via a family drilldown) stacks on top */}
+      {showFamilies && (
+        <FamiliesDrawer
+          seenSci={seenSci}
+          onClose={() => setShowFamilies(false)}
+          onFamilyClick={(family) => openFamilyList(family)}
+        />
+      )}
+
+      {/* species list drawer — accepts optional title/subtitle/eyebrow/restrictFn
+          via the listFilter object, set when opening from a stat card or family */}
+      {showList && (
+        <SpeciesListDrawer
+          seenSci={seenSci}
+          onClose={() => { setShowList(false); }}
+          {...(listFilter || {})}
+        />
+      )}
 
       {/* sightings map drawer */}
-      {showMap && <SightingsMapDrawer points={points || []} onClose={() => setShowMap(false)} />}
+      {showMap && <SightingsMapDrawer points={points || []} userCount={userCount} onClose={() => setShowMap(false)} />}
+
+      {/* install prompt drawer (manual instructions for iOS / browsers without programmatic install) */}
+      {showInstall && <InstallPromptDrawer onClose={() => setShowInstall(false)} />}
 
       {/* settings drawer */}
       {showSettings && (
@@ -1655,7 +1794,7 @@ export default function BirdLifeTracker() {
 
             <div className="space-y-1">
               <button
-                onClick={() => { setShowList(true); setShowSettings(false); }}
+                onClick={() => { openAllSpecies(); setShowSettings(false); }}
                 className="block w-full text-left px-3 py-2 rounded-lg ink-soft hover:ink hover:bg-white/5 text-sm transition-colors"
               >
                 Browse all {TOTAL} species →
@@ -1764,11 +1903,11 @@ export default function BirdLifeTracker() {
 // ============================================================================
 // Species list drawer — full 774-species list with checkbox states
 // ============================================================================
-function SpeciesListDrawer({ seenSci, onClose }) {
+function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restrictFn }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all'); // 'all' | 'seen' | 'unseen'
 
-  // Filter species, then group consecutively by family.
+  // Filter species (optionally to a restricted subset), then group consecutively by family.
   // Output is an array of { family, items: [[common, sci], ...] } in taxonomic order.
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -1777,6 +1916,7 @@ function SpeciesListDrawer({ seenSci, onClose }) {
     let currentGroup = null;
 
     for (const [common, sci] of NATIVE_SPECIES) {
+      if (restrictFn && !restrictFn(sci)) continue;
       const seen = seenSci.has(sci);
       if (filter === 'seen' && !seen) continue;
       if (filter === 'unseen' && seen) continue;
@@ -1791,10 +1931,23 @@ function SpeciesListDrawer({ seenSci, onClose }) {
       currentGroup.items.push([common, sci]);
     }
     return result;
-  }, [query, filter, seenSci]);
+  }, [query, filter, seenSci, restrictFn]);
 
-  const totalShown = groups.reduce((n, g) => n + g.items.length, 0);
-  const seenCount = seenSci.size;
+  // Counts scoped to the restriction (so the header reflects what the user actually sees)
+  const { totalInScope, seenInScope } = useMemo(() => {
+    let total = 0, seen = 0;
+    for (const [, sci] of NATIVE_SPECIES) {
+      if (restrictFn && !restrictFn(sci)) continue;
+      total++;
+      if (seenSci.has(sci)) seen++;
+    }
+    return { totalInScope: total, seenInScope: seen };
+  }, [seenSci, restrictFn]);
+
+  const hideFamilyHeader = groups.length === 1; // single-family view doesn't need redundant subheader
+
+  const displayTitle = title || `The ${TOTAL}`;
+  const displayEyebrow = eyebrow || 'Species Index';
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
@@ -1808,22 +1961,26 @@ function SpeciesListDrawer({ seenSci, onClose }) {
           <button onClick={onClose} className="absolute top-4 right-4 ink-soft hover:ink z-10 transition-colors">
             <X size={18} />
           </button>
-          <div className="font-mono text-[10px] ink-faint tracking-[0.25em] uppercase mb-1">Species Index</div>
-          <h2 className="font-display ink text-2xl sm:text-3xl mb-1" style={{ fontWeight: 700 }}>The {TOTAL}</h2>
+          <div className="font-mono text-[10px] ink-faint tracking-[0.25em] uppercase mb-1">{displayEyebrow}</div>
+          <h2 className="font-display ink text-2xl sm:text-3xl mb-1" style={{ fontWeight: 700 }}>{displayTitle}</h2>
           <p className="ink-soft text-sm mb-4">
-            <span className="moss font-mono" style={{ fontWeight: 600 }}>{seenCount}</span> recorded
+            <span className="moss font-mono" style={{ fontWeight: 600 }}>{seenInScope}</span> recorded
             {' · '}
-            <span className="ink-faint font-mono">{TOTAL - seenCount}</span> unseen
-            {' · '}
-            grouped by family
+            <span className="ink-faint font-mono">{totalInScope - seenInScope}</span> unseen
+            {subtitle && (
+              <>
+                {' · '}
+                <span className="ink-faint">{subtitle}</span>
+              </>
+            )}
           </p>
 
           {/* filter pills */}
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {[
-              ['all', `All ${TOTAL}`],
-              ['seen', `Seen (${seenCount})`],
-              ['unseen', `Unseen (${TOTAL - seenCount})`],
+              ['all', `All ${totalInScope}`],
+              ['seen', `Seen (${seenInScope})`],
+              ['unseen', `Unseen (${totalInScope - seenInScope})`],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -1862,19 +2019,23 @@ function SpeciesListDrawer({ seenSci, onClose }) {
                 const famSeen = items.filter(([, s]) => seenSci.has(s)).length;
                 return (
                   <section key={family} className="mb-1">
-                    {/* family subheader */}
-                    <div className="sticky top-0 z-10 px-3 py-2 flex items-baseline justify-between gap-3" style={{ background: 'rgba(20, 41, 38, 0.95)', backdropFilter: 'blur(8px)' }}>
-                      <h3 className="font-display ink text-base sm:text-lg" style={{ fontWeight: 600 }}>
-                        {family}
-                      </h3>
-                      <span
-                        className="font-mono text-[11px] ink-soft tracking-wider whitespace-nowrap"
-                        style={{ fontWeight: 600 }}
-                      >
-                        {famSeen} / {items.length}
-                      </span>
-                    </div>
-                    <div className="border-t mx-3 mb-1" style={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+                    {/* family subheader — hidden when the whole drawer is one family */}
+                    {!hideFamilyHeader && (
+                      <>
+                        <div className="sticky top-0 z-10 px-3 py-2 flex items-baseline justify-between gap-3" style={{ background: 'rgba(20, 41, 38, 0.95)', backdropFilter: 'blur(8px)' }}>
+                          <h3 className="font-display ink text-base sm:text-lg" style={{ fontWeight: 600 }}>
+                            {family}
+                          </h3>
+                          <span
+                            className="font-mono text-[11px] ink-soft tracking-wider whitespace-nowrap"
+                            style={{ fontWeight: 600 }}
+                          >
+                            {famSeen} / {items.length}
+                          </span>
+                        </div>
+                        <div className="border-t mx-3 mb-1" style={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+                      </>
+                    )}
                     <ul>
                       {items.map(([common, sci]) => {
                         const seen = seenSci.has(sci);
@@ -1917,6 +2078,261 @@ function SpeciesListDrawer({ seenSci, onClose }) {
           <button onClick={onClose} className="btn-ghost rounded-full px-4 py-1.5 text-xs">
             Close
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// Families drawer — lists all 81 families with seen counts; tap to drill into
+// the species list scoped to that family.
+// ============================================================================
+function FamiliesDrawer({ seenSci, onClose, onFamilyClick }) {
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all'); // 'all' | 'started' | 'untouched'
+
+  // Compute per-family totals & seen counts in one pass over NATIVE_SPECIES
+  const families = useMemo(() => {
+    const totals = new Map();
+    const seens = new Map();
+    for (const [, sci] of NATIVE_SPECIES) {
+      const fam = SCI_TO_FAMILY.get(sci);
+      if (!fam) continue;
+      totals.set(fam, (totals.get(fam) || 0) + 1);
+      if (seenSci.has(sci)) seens.set(fam, (seens.get(fam) || 0) + 1);
+    }
+    // Iterate FAMILY_BOUNDARIES to preserve taxonomic order
+    const out = [];
+    for (const [, family] of FAMILY_BOUNDARIES) {
+      out.push({
+        name: family,
+        total: totals.get(family) || 0,
+        seen: seens.get(family) || 0,
+      });
+    }
+    return out;
+  }, [seenSci]);
+
+  const totalFamilies = families.length;
+  const startedFamilies = families.filter(f => f.seen > 0).length;
+
+  // Apply pill filter + search
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return families.filter(f => {
+      if (filter === 'started' && f.seen === 0) return false;
+      if (filter === 'untouched' && f.seen > 0) return false;
+      if (q && !f.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [families, query, filter]);
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div
+        className="max-w-2xl w-full relative flex flex-col rounded-2xl overflow-hidden"
+        style={{ background: '#142926', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 30px 80px rgba(0,0,0,0.5)', maxHeight: '92vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* header */}
+        <div className="relative p-6 sm:p-7 pb-4 border-b rule">
+          <button onClick={onClose} className="absolute top-4 right-4 ink-soft hover:ink z-10 transition-colors">
+            <X size={18} />
+          </button>
+          <div className="font-mono text-[10px] ink-faint tracking-[0.25em] uppercase mb-1">Diversity</div>
+          <h2 className="font-display ink text-2xl sm:text-3xl mb-1" style={{ fontWeight: 700 }}>Bird Families</h2>
+          <p className="ink-soft text-sm mb-4">
+            <span className="moss font-mono" style={{ fontWeight: 600 }}>{startedFamilies}</span> represented
+            {' · '}
+            <span className="ink-faint font-mono">{totalFamilies - startedFamilies}</span> untouched
+            {' · '}
+            <span className="ink-faint">tap to see species</span>
+          </p>
+
+          {/* filter pills */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {[
+              ['all',       `All ${totalFamilies}`],
+              ['started',   `Represented (${startedFamilies})`],
+              ['untouched', `Untouched (${totalFamilies - startedFamilies})`],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={`rounded-full px-3 py-1.5 text-xs transition ${
+                  filter === key ? 'btn-ink' : 'btn-ghost'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* search */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 ink-faint" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search families…"
+              className="input-field rounded-full pl-9 pr-3 py-2 text-sm w-full"
+            />
+          </div>
+        </div>
+
+        {/* family list */}
+        <div className="relative flex-1 overflow-y-auto px-2 sm:px-4 py-2">
+          {visible.length === 0 ? (
+            <div className="text-center py-12 ink-faint text-sm">
+              No matches{query ? ` for "${query}"` : ''}.
+            </div>
+          ) : (
+            <ul className="font-body">
+              {visible.map(f => {
+                const started = f.seen > 0;
+                const pct = f.total > 0 ? (f.seen / f.total) * 100 : 0;
+                return (
+                  <li key={f.name}>
+                    <button
+                      onClick={() => onFamilyClick(f.name)}
+                      className="species-row w-full flex items-center gap-3 px-3 py-3 border-b text-left"
+                      style={{ borderColor: 'rgba(255,255,255,0.04)' }}
+                    >
+                      {started ? (
+                        <CheckSquare size={22} strokeWidth={1.75} className="moss shrink-0" />
+                      ) : (
+                        <Square size={22} strokeWidth={1.5} className="ink-faint shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className={`text-[15px] leading-tight truncate ${started ? 'ink' : 'ink-soft'}`}
+                          style={started ? { fontWeight: 600 } : undefined}
+                        >
+                          {f.name}
+                        </div>
+                        {started && (
+                          <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                            <div className="h-full rounded-full" style={{
+                              width: `${pct}%`,
+                              background: 'linear-gradient(90deg, #4ade80 0%, #2dd4bf 100%)',
+                            }} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="font-mono text-[12px] tracking-wider whitespace-nowrap" style={{ fontWeight: 600 }}>
+                        <span className={started ? 'ink' : 'ink-faint'}>{f.seen}</span>
+                        <span className="ink-faint"> / {f.total}</span>
+                      </div>
+                      <ChevronRight size={16} className="ink-faint shrink-0" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* footer */}
+        <div className="relative px-6 py-3 border-t rule">
+          <span className="font-mono text-[10px] ink-faint tracking-wider uppercase">
+            {visible.length} of {totalFamilies} families shown
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// Install prompt drawer — manual instructions when the browser cannot trigger
+// an install prompt for us (iOS Safari, or desktop without PWA install support).
+// ============================================================================
+function InstallPromptDrawer({ onClose }) {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isAndroid = /Android/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(ua);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div
+        className="surface-2 rounded-2xl max-w-md w-full p-7 relative"
+        style={{ boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} className="absolute top-4 right-4 ink-soft hover:ink transition-colors">
+          <X size={18} />
+        </button>
+
+        <div className="font-mono text-[10px] ink-faint tracking-[0.25em] uppercase mb-1">Install</div>
+        <h2 className="font-display ink text-2xl mb-1" style={{ fontWeight: 700 }}>Add to Home Screen</h2>
+        <p className="ink-soft text-sm mb-6">
+          Get an app-like experience with quick access from your home screen — same data, just one tap.
+        </p>
+
+        {isIOS ? (
+          <div className="space-y-4">
+            <p className="text-xs ink-faint">
+              {isSafari ? 'In Safari:' : "iOS requires Safari for this — open this page in Safari, then:"}
+            </p>
+            <ol className="space-y-3 text-sm ink-soft">
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center font-mono text-xs ink shrink-0" style={{ fontWeight: 600 }}>1</span>
+                <span>
+                  Tap the <span className="inline-flex items-center px-2 py-0.5 rounded" style={{ background: 'rgba(45,212,191,0.12)' }}>
+                    <Share2 size={13} className="teal mr-1" />
+                    <span className="teal text-xs" style={{ fontWeight: 600 }}>Share</span>
+                  </span> button at the bottom of Safari
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center font-mono text-xs ink shrink-0" style={{ fontWeight: 600 }}>2</span>
+                <span>
+                  Scroll down and tap <span className="inline-flex items-center px-2 py-0.5 rounded" style={{ background: 'rgba(249,115,22,0.10)' }}>
+                    <Plus size={13} className="rust mr-1" />
+                    <span className="rust text-xs" style={{ fontWeight: 600 }}>Add to Home Screen</span>
+                  </span>
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center font-mono text-xs ink shrink-0" style={{ fontWeight: 600 }}>3</span>
+                <span>Tap <span className="ink" style={{ fontWeight: 600 }}>Add</span> in the top right</span>
+              </li>
+            </ol>
+          </div>
+        ) : isAndroid ? (
+          <div className="space-y-3 text-sm ink-soft">
+            <ol className="space-y-3">
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center font-mono text-xs ink shrink-0" style={{ fontWeight: 600 }}>1</span>
+                <span>Tap the <span className="ink" style={{ fontWeight: 600 }}>⋮ menu</span> in your browser's top right</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center font-mono text-xs ink shrink-0" style={{ fontWeight: 600 }}>2</span>
+                <span>Select <span className="ink" style={{ fontWeight: 600 }}>Install app</span> or <span className="ink" style={{ fontWeight: 600 }}>Add to Home Screen</span></span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center font-mono text-xs ink shrink-0" style={{ fontWeight: 600 }}>3</span>
+                <span>Confirm to add the icon</span>
+              </li>
+            </ol>
+          </div>
+        ) : (
+          <div className="space-y-3 text-sm ink-soft">
+            <p>
+              Look for an install icon in your browser's address bar, or use the browser menu to find
+              "Install Census" or "Add to Home Screen".
+            </p>
+            <p className="text-xs ink-faint">For the best experience, open this site on your phone (iPhone or Android).</p>
+          </div>
+        )}
+
+        <div className="border-t rule mt-6 pt-4 flex justify-end">
+          <button onClick={onClose} className="btn-ghost rounded-full px-5 py-2 text-sm">Got it</button>
         </div>
       </div>
     </div>
@@ -1969,7 +2385,11 @@ function heatColor(t) {
   return `rgba(${c[0]},${c[1]},${c[2]},${c[3]})`;
 }
 
-function SightingsMapDrawer({ points, onClose }) {
+function SightingsMapDrawer({ points, userCount, onClose }) {
+  const svgContainerRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState(null);
+
   // Project points to pixel space. Each point is [lng, lat, weight] where
   // weight is unique species count at that location. Older data stored as
   // [lng, lat] is handled by defaulting weight to 1.
@@ -2022,6 +2442,129 @@ function SightingsMapDrawer({ points, onClose }) {
     return m;
   }, [points]);
 
+  // ---- Share card: render a 1200×1200 PNG with the count above the map ----
+  async function shareCard() {
+    if (sharing) return;
+    setSharing(true);
+    setShareError(null);
+    try {
+      const svgEl = svgContainerRef.current?.querySelector('svg');
+      if (!svgEl) throw new Error('Map not ready');
+
+      // Pre-warm fonts so canvas draws Montserrat, not a fallback
+      try {
+        if (document.fonts) {
+          await Promise.all([
+            document.fonts.load('800 200px Montserrat'),
+            document.fonts.load('600 40px Montserrat'),
+            document.fonts.load('500 32px Montserrat'),
+            document.fonts.load('600 24px Montserrat'),
+          ]);
+        }
+      } catch {
+        // Non-fatal; canvas will fall back to system-ui
+      }
+
+      // Serialize the SVG into a self-contained data URI
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      const xml = new XMLSerializer().serializeToString(clone);
+      const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      // Load SVG into an Image element
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = () => reject(new Error('SVG load failed'));
+        img.src = svgUrl;
+      });
+
+      // Build the canvas
+      const W = 1200, H = 1200;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      // Background — solid dark teal matching the app
+      ctx.fillStyle = '#0c1f1f';
+      ctx.fillRect(0, 0, W, H);
+
+      // Header text
+      const count = userCount ?? 0;
+      const pct = (count / TOTAL) * 100;
+
+      ctx.textAlign = 'center';
+
+      // Top eyebrow
+      ctx.font = '600 24px Montserrat, system-ui, sans-serif';
+      ctx.fillStyle = '#6b7773';
+      ctx.fillText('CONTINENTAL CENSUS · UNITED STATES', W / 2, 100);
+
+      // Giant count number
+      ctx.font = '800 240px Montserrat, system-ui, sans-serif';
+      ctx.fillStyle = '#f5f5f4';
+      ctx.fillText(`${count}`, W / 2, 320);
+
+      // "of 774"
+      ctx.font = '500 40px Montserrat, system-ui, sans-serif';
+      ctx.fillStyle = '#a8b1ae';
+      ctx.fillText(`of ${TOTAL} native bird species`, W / 2, 380);
+
+      // Percentage in orange
+      ctx.font = '700 36px Montserrat, system-ui, sans-serif';
+      ctx.fillStyle = '#fb923c';
+      ctx.fillText(`${pct.toFixed(1)}% complete`, W / 2, 440);
+
+      // Map: 900×566 (700×440 aspect at smaller scale), centered horizontally
+      const mapW = 900;
+      const mapH = Math.round(mapW * (MAP_H / MAP_W));
+      const mapX = (W - mapW) / 2;
+      const mapY = 510;
+      ctx.drawImage(img, mapX, mapY, mapW, mapH);
+
+      // Footer caption beneath the map
+      ctx.font = '500 26px Montserrat, system-ui, sans-serif';
+      ctx.fillStyle = '#a8b1ae';
+      ctx.fillText(`where I've found birds — density weighted by species variety`, W / 2, mapY + mapH + 50);
+
+      URL.revokeObjectURL(svgUrl);
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.95));
+      if (!blob) throw new Error('Image encoding failed');
+
+      const file = new File([blob], 'census.png', { type: 'image/png' });
+
+      // Prefer the Web Share API on mobile (iOS 15+, recent Android)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'My Continental Census',
+          text: `${count}/${TOTAL} native US bird species · ${pct.toFixed(1)}%`,
+        });
+      } else {
+        // Fallback for older iOS, desktop, or browsers without file-sharing
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `census-${count}-of-${TOTAL}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        // AbortError just means the user dismissed the share sheet — not an error
+        setShareError(err?.message || 'Share failed');
+      }
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
       <div
@@ -2058,7 +2601,7 @@ function SightingsMapDrawer({ points, onClose }) {
               No locations with coordinates were found in your CSV.
             </div>
           ) : (
-            <div className="relative w-full">
+            <div className="relative w-full" ref={svgContainerRef}>
               <svg
                 viewBox={`0 0 ${MAP_W} ${MAP_H}`}
                 xmlns="http://www.w3.org/2000/svg"
@@ -2135,15 +2678,38 @@ function SightingsMapDrawer({ points, onClose }) {
         </div>
 
         {/* footer */}
-        <div className="relative px-6 py-3 border-t rule flex items-center justify-between">
-          <span className="font-mono text-[10px] ink-faint tracking-wider uppercase">
+        <div className="relative px-4 sm:px-6 py-3 border-t rule flex items-center justify-between gap-3">
+          <span className="font-mono text-[10px] ink-faint tracking-wider uppercase hidden sm:inline">
             {projectedCount.toLocaleString()} of {points.length.toLocaleString()} locations mapped
             {projectedCount < points.length && ' (others outside lower 48 / AK / HI)'}
           </span>
-          <button onClick={onClose} className="btn-ghost rounded-full px-4 py-1.5 text-xs">
-            Close
-          </button>
+          <span className="font-mono text-[10px] ink-faint tracking-wider uppercase sm:hidden">
+            {projectedCount.toLocaleString()} / {points.length.toLocaleString()} loc.
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={shareCard}
+              disabled={sharing || projectedCount === 0}
+              className="btn-ink rounded-full px-4 py-1.5 text-xs inline-flex items-center gap-1.5"
+              aria-label="Share heatmap image"
+            >
+              {sharing ? <RefreshCw size={12} className="animate-spin" /> : <Share2 size={12} />}
+              {sharing ? 'Building…' : 'Share'}
+            </button>
+            <button onClick={onClose} className="btn-ghost rounded-full px-4 py-1.5 text-xs">
+              Close
+            </button>
+          </div>
         </div>
+        {shareError && (
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 px-3 py-2 rounded-lg text-xs" style={{
+            background: 'rgba(127, 29, 29, 0.95)',
+            color: '#f5f5f4',
+            border: '1px solid rgba(248, 113, 113, 0.30)',
+          }}>
+            {shareError}
+          </div>
+        )}
       </div>
     </div>
   );
