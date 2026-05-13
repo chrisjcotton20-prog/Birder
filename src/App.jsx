@@ -901,6 +901,112 @@ const SCI_TO_FAMILY = (() => {
   return out;
 })();
 
+// ABA Code 3 scientific names — 'rare but annual' species within the 774.
+// 101 species. Used to power the 'Rare bird finds' stat.
+const CODE_3_SCI = new Set([
+  "Anser fabalis",
+  "Anser serrirostris",
+  "Cygnus cygnus",
+  "Anas laysanensis",
+  "Aythya ferina",
+  "Aythya fuligula",
+  "Mergellus albellus",
+  "Nomonyx dominicus",
+  "Phoenicopterus ruber",
+  "Columbina talpacoti",
+  "Crotophaga ani",
+  "Cuculus canorus",
+  "Antrostomus ridgwayi",
+  "Aerodramus bartschi",
+  "Colibri thalassinus",
+  "Basilinna leucotis",
+  "Saucerottia beryllina",
+  "Charadrius hiaticula",
+  "Charadrius mongolus",
+  "Limosa limosa",
+  "Calidris pugnax",
+  "Calidris acuminata",
+  "Calidris ferruginea",
+  "Calidris temminckii",
+  "Calidris subminuta",
+  "Calidris ruficollis",
+  "Gallinago gallinago",
+  "Xenus cinereus",
+  "Actitis hypoleucos",
+  "Tringa brevipes",
+  "Tringa nebularia",
+  "Stercorarius skua",
+  "Brachyramphus perdix",
+  "Synthliboramphus hypoleucus",
+  "Synthliboramphus craveri",
+  "Pagophila eburnea",
+  "Rhodostethia rosea",
+  "Larus livens",
+  "Larus schistisagus",
+  "Anous ceruleus",
+  "Phaethon aethereus",
+  "Phaethon rubricauda",
+  "Phoebastria albatrus",
+  "Pelagodroma marina",
+  "Hydrobates socorroensis",
+  "Hydrobates tristrami",
+  "Hydrobates microsoma",
+  "Pterodroma arminjoniana",
+  "Pterodroma ultima",
+  "Pterodroma cahow",
+  "Pterodroma externa",
+  "Pterodroma sandwichensis",
+  "Pterodroma cervicalis",
+  "Pterodroma hypoleuca",
+  "Pterodroma nigripennis",
+  "Pterodroma feae",
+  "Pterodroma cookii",
+  "Bulweria bulwerii",
+  "Ardenna carneipes",
+  "Puffinus nativitatis",
+  "Puffinus newelli",
+  "Fregata minor",
+  "Sula dactylatra",
+  "Chondrohierax uncinatus",
+  "Glaucidium brasilianum",
+  "Falco femoralis",
+  "Pachyramphus aglaiae",
+  "Myiarchus sagrae",
+  "Tyrannus savana",
+  "Vireo flavoviridis",
+  "Chasiempis ibidis",
+  "Poecile cinctus",
+  "Polioptila nigriceps",
+  "Acrocephalus familiaris",
+  "Calliope calliope",
+  "Myadestes palmeri",
+  "Turdus obscurus",
+  "Turdus rufopalliatus",
+  "Motacilla alba",
+  "Anthus hodgsoni",
+  "Anthus cervinus",
+  "Fringilla montifringilla",
+  "Oreomystis bairdi",
+  "Loxioides bailleui",
+  "Telespiza cantans",
+  "Telespiza ultima",
+  "Palmeria dolei",
+  "Pseudonestor xanthophrys",
+  "Hemignathus wilsoni",
+  "Loxops mana",
+  "Loxops caeruleirostris",
+  "Loxops coccineus",
+  "Plectrophenax hyperboreus",
+  "Emberiza rustica",
+  "Amphispiza quinquestriata",
+  "Spindalis zena",
+  "Molothrus bonariensis",
+  "Setophaga pitiayumi",
+  "Basileuterus rufifrons",
+  "Piranga bidentata",
+  "Sporophila morelleti",
+]);
+
 // ---------- storage keys ----------
 const STORAGE = {
   userCount: 'ebird:userCount',
@@ -1157,6 +1263,27 @@ export default function BirdLifeTracker() {
     setSuccess('Cleared.');
   }
 
+  // Derived stats: unique families seen, and Code 3 rare finds.
+  const familiesSeen = useMemo(() => {
+    if (!seenSci || seenSci.size === 0) return 0;
+    const fams = new Set();
+    for (const sci of seenSci) {
+      const f = SCI_TO_FAMILY.get(sci);
+      if (f) fams.add(f);
+    }
+    return fams.size;
+  }, [seenSci]);
+
+  const code3Seen = useMemo(() => {
+    if (!seenSci || seenSci.size === 0) return 0;
+    let n = 0;
+    for (const sci of seenSci) if (CODE_3_SCI.has(sci)) n++;
+    return n;
+  }, [seenSci]);
+
+  const TOTAL_FAMILIES = FAMILY_BOUNDARIES.length;
+  const TOTAL_CODE_3 = CODE_3_SCI.size;
+
   const pct = userCount != null ? (userCount / TOTAL) * 100 : null;
   const remaining = userCount != null ? TOTAL - userCount : null;
   const empty = hydrated && userCount == null;
@@ -1384,7 +1511,7 @@ export default function BirdLifeTracker() {
               )}
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-3 mt-10 anim-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-10 anim-5">
               <div className="surface-1 rounded-2xl p-4">
                 <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2">Observations</div>
                 <div className="font-display ink" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
@@ -1392,12 +1519,31 @@ export default function BirdLifeTracker() {
                 </div>
               </div>
               <div className="surface-1 rounded-2xl p-4">
+                <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2">Families seen</div>
+                <div className="font-display ink leading-none" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                  {familiesSeen}
+                  <span className="ink-faint" style={{ fontSize: '0.7em', fontWeight: 500, marginLeft: '0.15em' }}>
+                    / {TOTAL_FAMILIES}
+                  </span>
+                </div>
+              </div>
+              <div className="surface-1 rounded-2xl p-4">
+                <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2">Rare bird finds</div>
+                <div className="font-display ink leading-none" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                  {code3Seen}
+                  <span className="ink-faint" style={{ fontSize: '0.7em', fontWeight: 500, marginLeft: '0.15em' }}>
+                    / {TOTAL_CODE_3}
+                  </span>
+                </div>
+                <div className="font-mono text-[9px] ink-faint tracking-wider mt-1">ABA Code 3</div>
+              </div>
+              <div className="surface-1 rounded-2xl p-4">
                 <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2">First sighting</div>
                 <div className="font-display ink" style={{ fontSize: '0.95rem', fontWeight: 500 }}>
                   {csvMeta?.earliest ? fmtDate(csvMeta.earliest) : '—'}
                 </div>
               </div>
-              <div className="surface-1 rounded-2xl p-4">
+              <div className="surface-1 rounded-2xl p-4 col-span-2 sm:col-span-1">
                 <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2">Latest entry</div>
                 <div className="font-display ink" style={{ fontSize: '0.95rem', fontWeight: 500 }}>
                   {csvMeta?.latest ? fmtDate(csvMeta.latest) : '—'}
