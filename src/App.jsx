@@ -1710,7 +1710,7 @@ export default function BirdLifeTracker() {
                   Sightings map
                 </button>
               )}
-              {locations && locations.length > 0 && (
+              {userCount != null && (
                 <button
                   onClick={() => setShowTips(true)}
                   className="btn-ink rounded-full px-5 py-2.5 text-sm inline-flex items-center gap-2"
@@ -1964,7 +1964,7 @@ export default function BirdLifeTracker() {
                   Sightings map →
                 </button>
               )}
-              {locations && locations.length > 0 && (
+              {userCount != null && (
                 <button
                   onClick={() => { setShowTips(true); setShowSettings(false); }}
                   className="block w-full text-left px-3 py-2 rounded-lg ink-soft hover:ink hover:bg-white/5 text-sm transition-colors"
@@ -2247,7 +2247,7 @@ function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restric
         {/* footer count */}
         <div className="relative px-6 py-3 border-t rule flex items-center justify-between">
           <span className="font-mono text-[10px] ink-faint tracking-wider uppercase">
-            {totalShown} shown · {groups.length} {groups.length === 1 ? 'family' : 'families'}
+            {groups.reduce((n, g) => n + g.items.length, 0)} shown · {groups.length} {groups.length === 1 ? 'family' : 'families'}
           </span>
           <button onClick={onClose} className="btn-ghost rounded-full px-4 py-1.5 text-xs">
             Close
@@ -2586,14 +2586,16 @@ function TipsDrawer({ apiKey, locations, seenSci, onClose, onOpenSettings }) {
         <div className="relative flex-1 overflow-y-auto px-4 sm:px-6 py-4">
           {/* No locations available */}
           {!hasLocations && (
-            <div className="text-center py-12">
-              <div className="ink-soft text-sm mb-3">
-                No eBird hotspots in your data yet.
-              </div>
-              <div className="text-xs ink-faint max-w-xs mx-auto">
-                Upload a CSV from <span className="font-mono">My eBird → Download My Data</span>. Tips
-                use the Location IDs in your checklist data.
-              </div>
+            <div className="surface-1 rounded-2xl p-5 text-center">
+              <h3 className="font-display ink text-lg mb-2" style={{ fontWeight: 600 }}>Re-upload your CSV</h3>
+              <p className="text-sm ink-soft leading-relaxed mb-4">
+                Tips need eBird Location IDs from your checklist data — a column that
+                wasn't captured in earlier versions. Re-upload your <span className="font-mono text-xs">MyEBirdData.csv</span> from
+                Settings to enable hints.
+              </p>
+              <p className="text-xs ink-faint">
+                You won't lose any data — your count, sightings, and map stay the same.
+              </p>
             </div>
           )}
 
