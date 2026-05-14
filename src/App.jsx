@@ -1231,7 +1231,7 @@ export default function BirdLifeTracker() {
       title: 'Rare Bird Finds',
       eyebrow: 'ABA Code 3',
       subtitle: 'rare but annual',
-      restrictFn: (sci) => CODE_3_SCI.has(sci),
+      restrictType: 'code3',
     });
     setShowList(true);
   }
@@ -1239,7 +1239,8 @@ export default function BirdLifeTracker() {
     setListFilter({
       title: family,
       eyebrow: 'Family',
-      restrictFn: (sci) => SCI_TO_FAMILY.get(sci) === family,
+      restrictType: 'family',
+      restrictValue: family,
     });
     setShowList(true);
   }
@@ -1903,9 +1904,18 @@ export default function BirdLifeTracker() {
 // ============================================================================
 // Species list drawer — full 774-species list with checkbox states
 // ============================================================================
-function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restrictFn }) {
+function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restrictType, restrictValue }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all'); // 'all' | 'seen' | 'unseen'
+
+  // Derive the restriction predicate from primitive props so we never have to
+  // store a closure-over-state function in the parent's state. This avoids a
+  // class of bugs around stale closures and surprising re-renders.
+  const restrictFn = useMemo(() => {
+    if (restrictType === 'code3') return (sci) => CODE_3_SCI.has(sci);
+    if (restrictType === 'family') return (sci) => SCI_TO_FAMILY.get(sci) === restrictValue;
+    return null;
+  }, [restrictType, restrictValue]);
 
   // Filter species (optionally to a restricted subset), then group consecutively by family.
   // Output is an array of { family, items: [[common, sci], ...] } in taxonomic order.
@@ -2442,7 +2452,7 @@ function SightingsMapDrawer({ points, userCount, onClose }) {
     return m;
   }, [points]);
 
-  // ---- Share card: render a 1200×1200 PNG with the count above the map ----
+  // ---- Share card: 1080×1920 portrait PNG (9:16) sized for IG/Stories ----
   async function shareCard() {
     if (sharing) return;
     setSharing(true);
@@ -2455,19 +2465,26 @@ function SightingsMapDrawer({ points, userCount, onClose }) {
       try {
         if (document.fonts) {
           await Promise.all([
-            document.fonts.load('800 200px Montserrat'),
-            document.fonts.load('600 40px Montserrat'),
-            document.fonts.load('500 32px Montserrat'),
-            document.fonts.load('600 24px Montserrat'),
+            document.fonts.load('800 280px Montserrat'),
+            document.fonts.load('700 32px Montserrat'),
+            document.fonts.load('600 42px Montserrat'),
+            document.fonts.load('600 36px Montserrat'),
+            document.fonts.load('500 38px Montserrat'),
+            document.fonts.load('500 26px Montserrat'),
           ]);
         }
       } catch {
         // Non-fatal; canvas will fall back to system-ui
       }
 
-      // Serialize the SVG into a self-contained data URI
+      // Clone the SVG and strip the very-subtle state fills — those rgba
+      // white-on-dark polygons create a barely-visible lighter rectangle around
+      // the US that breaks the dark-on-dark blend we want for the share card.
+      // The state borders (drawn separately) still trace the actual US shape.
       const clone = svgEl.cloneNode(true);
       clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      clone.querySelectorAll('path[fill="rgba(255,255,255,0.03)"]').forEach((p) => p.remove());
+
       const xml = new XMLSerializer().serializeToString(clone);
       const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
       const svgUrl = URL.createObjectURL(svgBlob);
@@ -2481,54 +2498,125 @@ function SightingsMapDrawer({ points, userCount, onClose }) {
         img.src = svgUrl;
       });
 
-      // Build the canvas
-      const W = 1200, H = 1200;
+      // 9:16 portrait — Instagram Stories / Reels / TikTok native dimensions
+      const W = 1080, H = 1920;
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
       const ctx = canvas.getContext('2d');
 
-      // Background — solid dark teal matching the app
+      // Background — solid dark teal
       ctx.fillStyle = '#0c1f1f';
       ctx.fillRect(0, 0, W, H);
 
-      // Header text
+      // Soft warm halo behind the count area
+      const halo = ctx.createRadialGradient(W / 2, 450, 100, W / 2, 450, 700);
+      halo.addColorStop(0, 'rgba(249, 115, 22, 0.10)');
+      halo.addColorStop(0.6, 'rgba(249, 115, 22, 0.03)');
+      halo.addColorStop(1, 'rgba(249, 115, 22, 0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(0, 0, W, H);
+
       const count = userCount ?? 0;
       const pct = (count / TOTAL) * 100;
 
-      ctx.textAlign = 'center';
+      // === Top-left logo: feather + CENSUS wordmark ===
+      ctx.save();
+      ctx.translate(60, 60);
+      ctx.scale(2.1, 2.1);
+      ctx.strokeStyle = '#fb923c';
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const feather = new Path2D('M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z');
+      ctx.stroke(feather);
+      ctx.beginPath();
+      ctx.moveTo(16, 8);  ctx.lineTo(2, 22);  ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(17.5, 15); ctx.lineTo(9, 15); ctx.stroke();
+      ctx.restore();
 
-      // Top eyebrow
-      ctx.font = '600 24px Montserrat, system-ui, sans-serif';
-      ctx.fillStyle = '#6b7773';
-      ctx.fillText('CONTINENTAL CENSUS · UNITED STATES', W / 2, 100);
+      ctx.font = '700 32px Montserrat, system-ui, sans-serif';
+      ctx.fillStyle = '#f5f5f4';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('CENSUS', 130, 100);
+
+      // === Top section: count + percentage ===
+      ctx.textAlign = 'center';
+      const cx = W / 2;
 
       // Giant count number
-      ctx.font = '800 240px Montserrat, system-ui, sans-serif';
+      ctx.font = '800 280px Montserrat, system-ui, sans-serif';
       ctx.fillStyle = '#f5f5f4';
-      ctx.fillText(`${count}`, W / 2, 320);
+      ctx.fillText(`${count}`, cx, 440);
 
-      // "of 774"
-      ctx.font = '500 40px Montserrat, system-ui, sans-serif';
+      // "of 774 native US birds"
+      ctx.font = '500 38px Montserrat, system-ui, sans-serif';
       ctx.fillStyle = '#a8b1ae';
-      ctx.fillText(`of ${TOTAL} native bird species`, W / 2, 380);
+      ctx.fillText(`of ${TOTAL} native US birds`, cx, 510);
 
-      // Percentage in orange
-      ctx.font = '700 36px Montserrat, system-ui, sans-serif';
+      // Orange accent line
+      ctx.strokeStyle = '#fb923c';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - 60, 565);
+      ctx.lineTo(cx + 60, 565);
+      ctx.stroke();
+
+      // Percentage — toned-down weight & size
+      ctx.font = '600 42px Montserrat, system-ui, sans-serif';
       ctx.fillStyle = '#fb923c';
-      ctx.fillText(`${pct.toFixed(1)}% complete`, W / 2, 440);
+      ctx.fillText(`${pct.toFixed(1)}% complete`, cx, 625);
 
-      // Map: 900×566 (700×440 aspect at smaller scale), centered horizontally
-      const mapW = 900;
+      // === Middle: map with feathered edge fade ===
+      const mapW = 1040;
       const mapH = Math.round(mapW * (MAP_H / MAP_W));
       const mapX = (W - mapW) / 2;
-      const mapY = 510;
-      ctx.drawImage(img, mapX, mapY, mapW, mapH);
+      const mapY = 740;
 
-      // Footer caption beneath the map
-      ctx.font = '500 26px Montserrat, system-ui, sans-serif';
-      ctx.fillStyle = '#a8b1ae';
-      ctx.fillText(`where I've found birds — density weighted by species variety`, W / 2, mapY + mapH + 50);
+      // Render the SVG into a temp canvas so we can fade its edges before
+      // compositing onto the main card — without the temp canvas the fade
+      // would also erase the cards' dark teal background.
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = mapW;
+      tempCanvas.height = mapH;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(img, 0, 0, mapW, mapH);
+
+      // Soft edge fade — erase the outer 8% of each edge with a smooth gradient
+      tempCtx.globalCompositeOperation = 'destination-out';
+      const fadePx = Math.round(mapW * 0.08);
+      // Left
+      let g = tempCtx.createLinearGradient(0, 0, fadePx, 0);
+      g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      tempCtx.fillStyle = g; tempCtx.fillRect(0, 0, fadePx, mapH);
+      // Right
+      g = tempCtx.createLinearGradient(mapW - fadePx, 0, mapW, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
+      tempCtx.fillStyle = g; tempCtx.fillRect(mapW - fadePx, 0, fadePx, mapH);
+      // Top
+      g = tempCtx.createLinearGradient(0, 0, 0, fadePx);
+      g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      tempCtx.fillStyle = g; tempCtx.fillRect(0, 0, mapW, fadePx);
+      // Bottom
+      g = tempCtx.createLinearGradient(0, mapH - fadePx, 0, mapH);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
+      tempCtx.fillStyle = g; tempCtx.fillRect(0, mapH - fadePx, mapW, fadePx);
+
+      // Composite faded map onto main canvas
+      ctx.drawImage(tempCanvas, mapX, mapY);
+
+      // === Bottom: invitation caption + CTA ===
+      ctx.font = '600 44px Montserrat, system-ui, sans-serif';
+      ctx.fillStyle = '#f5f5f4';
+      ctx.textAlign = 'center';
+      ctx.fillText(`How many have YOU found?`, cx, 1680);
+
+      ctx.font = '500 28px Montserrat, system-ui, sans-serif';
+      ctx.fillStyle = '#fb923c';
+      ctx.fillText(`Find yours at CENSUS`, cx, 1740);
 
       URL.revokeObjectURL(svgUrl);
 
