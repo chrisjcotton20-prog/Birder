@@ -2443,32 +2443,52 @@ function TipsDrawer({ apiKey, locations, seenSci, onClose, onOpenSettings }) {
   }, [locations]);
 
   // Compute tips from a list of (location, recentObs) pairs.
+  // Output: one entry per missed species, with all reporting locations nested.
   function computeTips(pairs) {
-    // Each "tip" is one missed species at one location with its most-recent date.
-    // We keep the freshest observation per (species, location) combo, then sort
-    // globally by date so the headline tips are about species reported THIS WEEK.
-    const tipsByKey = new Map();
+    // Pass 1: for each location, find the freshest observation of each missed
+    // species. This collapses multiple sightings of the same bird at the same
+    // hotspot down to one (the most recent).
+    const bySpecies = new Map(); // sci → { sci, common, locations: [...] }
     for (const { loc, obs } of pairs) {
+      const freshestAtThisLoc = new Map(); // sci → { obsDt, howMany, comName }
       for (const o of obs) {
         const sci = o.sciName;
         if (!sci || !NATIVE_SCI.has(sci)) continue;
         if (seenSci.has(sci)) continue;
-        const key = `${sci}|${loc.id}`;
-        const prev = tipsByKey.get(key);
+        const prev = freshestAtThisLoc.get(sci);
         if (!prev || o.obsDt > prev.obsDt) {
-          tipsByKey.set(key, {
-            sci,
-            common: o.comName || sci,
-            locId: loc.id,
-            locName: loc.name || loc.id,
+          freshestAtThisLoc.set(sci, {
             obsDt: o.obsDt,
             howMany: o.howMany ?? null,
+            comName: o.comName || sci,
           });
         }
       }
+      // Merge this location's missed species into the global per-species map
+      for (const [sci, locObs] of freshestAtThisLoc) {
+        let entry = bySpecies.get(sci);
+        if (!entry) {
+          entry = { sci, common: locObs.comName, locations: [] };
+          bySpecies.set(sci, entry);
+        }
+        entry.locations.push({
+          locId: loc.id,
+          locName: loc.name || loc.id,
+          obsDt: locObs.obsDt,
+          howMany: locObs.howMany,
+        });
+      }
     }
-    const arr = Array.from(tipsByKey.values());
-    arr.sort((a, b) => b.obsDt.localeCompare(a.obsDt));
+    // Sort each species's location list by recency (most recent first), and
+    // surface the freshest date as `mostRecent` for top-level ranking.
+    const arr = [];
+    for (const entry of bySpecies.values()) {
+      entry.locations.sort((a, b) => b.obsDt.localeCompare(a.obsDt));
+      entry.mostRecent = entry.locations[0].obsDt;
+      arr.push(entry);
+    }
+    // Rank species by their freshest sighting anywhere
+    arr.sort((a, b) => b.mostRecent.localeCompare(a.mostRecent));
     return arr;
   }
 
@@ -2689,7 +2709,7 @@ function TipsDrawer({ apiKey, locations, seenSci, onClose, onOpenSettings }) {
               {cacheTimestamp && (
                 <div className="flex items-center justify-between mb-3 px-1">
                   <span className="font-mono text-[10px] ink-faint tracking-wider uppercase">
-                    {shownTips.length} hint{shownTips.length === 1 ? '' : 's'} · as of {relDate(new Date(cacheTimestamp).toISOString())}
+                    {shownTips.length} {shownTips.length === 1 ? 'species' : 'species'} · as of {relDate(new Date(cacheTimestamp).toISOString())}
                   </span>
                   <button
                     onClick={() => fetchAll(true)}
@@ -2704,19 +2724,39 @@ function TipsDrawer({ apiKey, locations, seenSci, onClose, onOpenSettings }) {
               <ul>
                 {shownTips.map((t) => (
                   <li
-                    key={`${t.sci}-${t.locId}`}
+                    key={t.sci}
                     className="species-row flex items-start gap-3 px-3 py-3 border-b"
                     style={{ borderColor: 'rgba(255,255,255,0.04)' }}
                   >
                     <div className="w-2 h-2 mt-2 rounded-full shrink-0" style={{ background: '#fb923c', boxShadow: '0 0 8px rgba(249,115,22,0.6)' }} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-[15px] ink leading-tight" style={{ fontWeight: 600 }}>{t.common}</div>
-                      <div className="font-mono text-[10px] ink-faint mt-0.5 truncate" style={{ fontStyle: 'italic' }}>{t.sci}</div>
-                      <div className="text-xs ink-soft mt-1">
-                        <span className="rust" style={{ fontWeight: 500 }}>{relDate(t.obsDt)}</span>
-                        <span className="ink-faint"> · </span>
-                        {t.locName}
+                      <div className="flex items-baseline gap-2">
+                        <div className="text-[15px] ink leading-tight" style={{ fontWeight: 600 }}>{t.common}</div>
+                        {t.locations.length > 1 && (
+                          <span className="font-mono text-[10px] rust" style={{ fontWeight: 600 }}>
+                            ×{t.locations.length}
+                          </span>
+                        )}
                       </div>
+                      <div className="font-mono text-[10px] ink-faint mt-0.5 truncate" style={{ fontStyle: 'italic' }}>{t.sci}</div>
+                      {t.locations.length === 1 ? (
+                        <div className="text-xs ink-soft mt-1">
+                          <span className="rust" style={{ fontWeight: 500 }}>{relDate(t.locations[0].obsDt)}</span>
+                          <span className="ink-faint"> · </span>
+                          {t.locations[0].locName}
+                        </div>
+                      ) : (
+                        <ul className="mt-1.5 space-y-1">
+                          {t.locations.map((l) => (
+                            <li key={l.locId} className="text-xs ink-soft flex items-baseline gap-2">
+                              <span className="rust shrink-0" style={{ fontWeight: 500, minWidth: '4.5em' }}>
+                                {relDate(l.obsDt)}
+                              </span>
+                              <span className="ink-faint truncate">{l.locName}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </li>
                 ))}
