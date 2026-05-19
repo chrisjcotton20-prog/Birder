@@ -1007,6 +1007,43 @@ const CODE_3_SCI = new Set([
   "Sporophila morelleti",
 ]);
 
+// IUCN Red List status for the at-risk native species within the 774.
+// Source: IUCN Red List via "List of threatened birds of the United States"
+// (VU/EN/CR globally threatened, plus the two Near Threatened US species).
+// Scientific names reconciled to current eBird/Clements taxonomy (e.g.
+// Oceanodroma→Hydrobates, Vestiaria→Drepanis, Puffinus→Ardenna,
+// Ammodramus→Ammospiza, Hemignathus munroi→wilsoni, Oreomystis mana→Loxops
+// mana, Hemignathus flavus/kauaiensis→Chlorodrepanis). 61 species.
+const IUCN_STATUS = {
+  // Vulnerable (VU)
+  "Phoebastria albatrus": "VU", "Pterodroma cervicalis": "VU", "Pterodroma cookii": "VU",
+  "Pterodroma externa": "VU", "Pterodroma sandwichensis": "VU", "Ardenna bulleri": "VU",
+  "Ardenna creatopus": "VU", "Branta sandvicensis": "VU", "Clangula hyemalis": "VU",
+  "Polysticta stelleri": "VU", "Tympanuchus pallidicinctus": "VU", "Tympanuchus cupido": "VU",
+  "Fulica alai": "VU", "Rissa brevirostris": "VU", "Numenius tahitiensis": "VU",
+  "Synthliboramphus craveri": "VU", "Synthliboramphus hypoleucus": "VU",
+  "Aphelocoma coerulescens": "VU", "Aphelocoma insularis": "VU", "Gymnorhinus cyanocephalus": "VU",
+  "Catharus bicknelli": "VU", "Myadestes obscurus": "VU", "Toxostoma bendirei": "VU",
+  "Anthus spragueii": "VU", "Setophaga cerulea": "VU", "Euphagus carolinus": "VU",
+  "Magumma parva": "VU", "Telespiza cantans": "VU", "Chasiempis sandwichensis": "VU",
+  "Chasiempis sclateri": "VU", "Drepanis coccinea": "VU", "Ammospiza caudacuta": "VU",
+  "Chlorodrepanis flava": "VU", "Chlorodrepanis stejnegeri": "VU",
+  // Endangered (EN)
+  "Pterodroma cahow": "EN", "Pterodroma hasitata": "EN", "Anas wyvilliana": "EN",
+  "Centrocercus minimus": "EN", "Grus americana": "EN", "Brachyramphus marmoratus": "EN",
+  "Setophaga chrysoparia": "EN", "Agelaius tricolor": "EN", "Loxops coccineus": "EN",
+  "Paroreomyza montana": "EN", "Chasiempis ibidis": "EN", "Hydrobates homochroa": "EN",
+  "Loxops mana": "EN", "Hemignathus wilsoni": "EN",
+  // Critically Endangered (CR)
+  "Puffinus newelli": "CR", "Anas laysanensis": "CR", "Gymnogyps californianus": "CR",
+  "Myadestes palmeri": "CR", "Acrocephalus familiaris": "CR", "Loxioides bailleui": "CR",
+  "Loxops caeruleirostris": "CR", "Oreomystis bairdi": "CR", "Palmeria dolei": "CR",
+  "Pseudonestor xanthophrys": "CR", "Telespiza ultima": "CR",
+  // Near Threatened (NT) — the two US NT species
+  "Brachyramphus brevirostris": "NT", "Vireo atricapilla": "NT",
+};
+const AT_RISK_SCI = new Set(Object.keys(IUCN_STATUS));
+
 // ---------- storage keys ----------
 const STORAGE = {
   userCount: 'ebird:userCount',
@@ -1337,6 +1374,15 @@ export default function BirdLifeTracker() {
     });
     setShowList(true);
   }
+  function openAtRiskList() {
+    setListFilter({
+      title: 'At-Risk Species',
+      eyebrow: 'IUCN Red List',
+      subtitle: 'threatened with extinction',
+      restrictType: 'atrisk',
+    });
+    setShowList(true);
+  }
   function openFamilyList(family) {
     setListFilter({
       title: family,
@@ -1507,8 +1553,16 @@ export default function BirdLifeTracker() {
     return n;
   }, [seenSci]);
 
+  const atRiskSeen = useMemo(() => {
+    if (!seenSci || seenSci.size === 0) return 0;
+    let n = 0;
+    for (const sci of seenSci) if (AT_RISK_SCI.has(sci)) n++;
+    return n;
+  }, [seenSci]);
+
   const TOTAL_FAMILIES = FAMILY_BOUNDARIES.length;
   const TOTAL_CODE_3 = CODE_3_SCI.size;
+  const TOTAL_AT_RISK = AT_RISK_SCI.size;
 
   const pct = userCount != null ? (userCount / TOTAL) * 100 : null;
   const remaining = userCount != null ? TOTAL - userCount : null;
@@ -1782,21 +1836,21 @@ export default function BirdLifeTracker() {
                 </div>
               </button>
               <button
-                onClick={openCode3List}
+                onClick={openAtRiskList}
                 className="surface-1 rounded-2xl p-4 text-left lift relative group"
-                aria-label="View the 101 rare-but-annual Code 3 species"
+                aria-label="View the IUCN at-risk native species"
               >
                 <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2 flex items-center justify-between">
-                  <span>Rare bird finds</span>
+                  <span>At-risk species</span>
                   <ChevronRight size={12} className="ink-faint group-hover:ink-soft transition-colors" />
                 </div>
-                <div className="font-display ink leading-none" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                  {code3Seen}
+                <div className="font-display leading-none" style={{ fontSize: '1.5rem', fontWeight: 700, color: '#fb923c' }}>
+                  {atRiskSeen}
                   <span className="ink-faint" style={{ fontSize: '0.7em', fontWeight: 500, marginLeft: '0.15em' }}>
-                    / {TOTAL_CODE_3}
+                    / {TOTAL_AT_RISK}
                   </span>
                 </div>
-                <div className="font-mono text-[9px] ink-faint tracking-wider mt-1">ABA Code 3</div>
+                <div className="font-mono text-[9px] ink-faint tracking-wider mt-1">IUCN threatened</div>
               </button>
               <div className="surface-1 rounded-2xl p-4">
                 <div className="font-mono text-[10px] ink-faint tracking-widest uppercase mb-2">First sighting</div>
@@ -1910,6 +1964,7 @@ export default function BirdLifeTracker() {
           userCount={userCount}
           familiesSeen={familiesSeen}
           code3Seen={code3Seen}
+          atRiskSeen={atRiskSeen}
           locationCount={csvMeta?.locationCount || (points?.length ?? 0)}
           onClose={() => setShowMap(false)}
         />
@@ -2123,6 +2178,7 @@ function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restric
   // class of bugs around stale closures and surprising re-renders.
   const restrictFn = useMemo(() => {
     if (restrictType === 'code3') return (sci) => CODE_3_SCI.has(sci);
+    if (restrictType === 'atrisk') return (sci) => AT_RISK_SCI.has(sci);
     if (restrictType === 'family') return (sci) => SCI_TO_FAMILY.get(sci) === restrictValue;
     return null;
   }, [restrictType, restrictValue]);
@@ -2259,6 +2315,12 @@ function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restric
                     <ul>
                       {items.map(([common, sci]) => {
                         const seen = seenSci.has(sci);
+                        const iucn = IUCN_STATUS[sci];
+                        const badgeColor =
+                          iucn === 'CR' ? '#f87171' :
+                          iucn === 'EN' ? '#fb923c' :
+                          iucn === 'VU' ? '#fbbf24' :
+                          '#a8b1ae'; // NT
                         return (
                           <li
                             key={sci}
@@ -2279,6 +2341,24 @@ function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restric
                               </div>
                               <div className="font-mono text-[10px] ink-faint mt-0.5 truncate" style={{ fontStyle: 'italic' }}>{sci}</div>
                             </div>
+                            {iucn && (
+                              <span
+                                className="font-mono text-[10px] shrink-0 px-1.5 py-0.5 rounded"
+                                style={{
+                                  color: badgeColor,
+                                  border: `1px solid ${badgeColor}`,
+                                  fontWeight: 600,
+                                  letterSpacing: '0.05em',
+                                }}
+                                title={
+                                  iucn === 'CR' ? 'Critically Endangered' :
+                                  iucn === 'EN' ? 'Endangered' :
+                                  iucn === 'VU' ? 'Vulnerable' : 'Near Threatened'
+                                }
+                              >
+                                {iucn}
+                              </span>
+                            )}
                           </li>
                         );
                       })}
@@ -3043,7 +3123,7 @@ function heatColor(t) {
   return `rgba(${c[0]},${c[1]},${c[2]},${c[3]})`;
 }
 
-function SightingsMapDrawer({ points, userCount, familiesSeen = 0, code3Seen = 0, locationCount = 0, onClose }) {
+function SightingsMapDrawer({ points, userCount, familiesSeen = 0, code3Seen = 0, atRiskSeen = 0, locationCount = 0, onClose }) {
   const svgContainerRef = useRef(null);
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState(null);
@@ -3277,9 +3357,9 @@ function SightingsMapDrawer({ points, userCount, familiesSeen = 0, code3Seen = 0
           color: '#f5f5f4',
         },
         {
-          label: 'RARE FINDS',
-          value: `${code3Seen}`,
-          sub: 'ABA Code 3',
+          label: 'AT-RISK',
+          value: `${atRiskSeen}`,
+          sub: 'IUCN threatened',
           color: '#fb923c',
         },
         {
