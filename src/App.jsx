@@ -1786,7 +1786,7 @@ export default function BirdLifeTracker() {
             {/* View buttons */}
             <div className="mt-6 anim-4 flex flex-wrap items-center justify-center gap-2">
               <button
-                onClick={() => setShowList(true)}
+                onClick={openAllSpecies}
                 className="btn-ghost rounded-full px-5 py-2.5 text-sm inline-flex items-center gap-2"
               >
                 <List size={14} strokeWidth={2} />
