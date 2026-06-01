@@ -3507,9 +3507,26 @@ function SightingsMapDrawer({ points, userCount, familiesSeen = 0, code3Seen = 0
                 style={{ background: 'transparent' }}
               >
                 <defs>
-                  <clipPath id="us-clip">
-                    <path d={PATH(NATION_OUTLINE) || ''} />
-                  </clipPath>
+                  {/* A *dilated* clip for the heatmap. With a strict clipPath
+                      tied to the literal US outline, coastal hotspots get
+                      their gaussian blobs sliced off at the coastline — and
+                      thin barrier-island spots like the Outer Banks barely
+                      render at all because the blob is mostly out over water.
+                      Using a mask with a stroked + filled path lets the heat
+                      bleed roughly 15 user-units past the coast (≈ 3× the
+                      density bandwidth, so we keep the meaningful part of each
+                      blob while still containing the map to "near the US"). */}
+                  <mask id="us-mask" maskUnits="userSpaceOnUse" x={0} y={0} width={MAP_W} height={MAP_H}>
+                    <rect x={0} y={0} width={MAP_W} height={MAP_H} fill="black" />
+                    <path
+                      d={PATH(NATION_OUTLINE) || ''}
+                      fill="white"
+                      stroke="white"
+                      strokeWidth={30}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                  </mask>
                 </defs>
 
                 {/* State fills — subtle white overlay on dark */}
@@ -3524,8 +3541,9 @@ function SightingsMapDrawer({ points, userCount, familiesSeen = 0, code3Seen = 0
                   ))}
                 </g>
 
-                {/* Heatmap contours, clipped to country outline */}
-                <g clipPath="url(#us-clip)">
+                {/* Heatmap contours, masked to a *dilated* country outline so
+                    coastal and barrier-island hotspots remain visible. */}
+                <g mask="url(#us-mask)">
                   {contours.map((c, i) => (
                     <path
                       key={i}
