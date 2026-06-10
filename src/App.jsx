@@ -3247,11 +3247,15 @@ const FIPS_TO_ABBR = {
 };
 const ABBR_TO_FIPS = Object.fromEntries(Object.entries(FIPS_TO_ABBR).map(([f,a]) => [a,f]));
 
-// 10-region partition of the country. Designed to honor common geographic
+// 11-region partition of the country. Designed to honor common geographic
 // understanding (PNW, Rockies, Plains, etc.) while keeping the regions
 // reasonably balanced. Alaska and Hawaii are each their own region because
 // grouping them with the Pacific states forces enormous bounding boxes that
-// shrink the contiguous states to invisibility when zoomed.
+// shrink the contiguous states to invisibility when zoomed. Great Plains is
+// split into a Northern half (ND/SD/NE/KS) and a Southern half (TX/OK) for
+// the same reason: with TX and OK in the same group, the region's bbox spans
+// nearly the entire latitude range of the lower 48 and there's almost no
+// zoom benefit.
 const REGIONS = [
   { id: 'pnw', name: 'Pacific Northwest', states: ['WA','OR','ID'] },
   { id: 'cal', name: 'California',        states: ['CA'] },
@@ -3259,7 +3263,8 @@ const REGIONS = [
   { id: 'hi',  name: 'Hawaii',            states: ['HI'] },
   { id: 'sw',  name: 'Southwest',         states: ['AZ','NM','UT','NV'] },
   { id: 'rm',  name: 'Rocky Mountains',   states: ['MT','WY','CO'] },
-  { id: 'gp',  name: 'Great Plains',      states: ['ND','SD','NE','KS','OK','TX'] },
+  { id: 'gp',  name: 'Great Plains',      states: ['ND','SD','NE','KS'] },
+  { id: 'sp',  name: 'Southern Plains',   states: ['OK','TX'] },
   { id: 'mw',  name: 'Midwest',           states: ['MN','IA','MO','WI','IL','MI','IN','OH'] },
   { id: 'ne',  name: 'Northeast',         states: ['PA','NY','NJ','CT','RI','MA','VT','NH','ME','DE','MD','DC','WV'] },
   { id: 'se',  name: 'Southeast',         states: ['AR','LA','MS','AL','GA','FL','TN','KY','NC','SC','VA'] },
@@ -3369,17 +3374,22 @@ function SightingsMapView({
   const points = (mode === 'first' ? pointsFirst : pointsAll) || [];
   const firstAvailable = Array.isArray(pointsFirst) && pointsFirst.length > 0;
 
-  // Build the active projection. For the full USA, use the composite Albers
-  // USA (which handles Alaska/Hawaii insets). For a region, fit a plain Albers
-  // to the region's merged geometry — this gives much more detail per pixel
-  // than the country-wide view.
-  const { activeProj, activePath, activeOutline, activeName } = useMemo(() => {
+  // Build the active projection AND a viewBox aspect that fits the active
+  // geometry. With a fixed wide viewBox (700×440), tall regions like Great
+  // Plains end up height-constrained — there's a lot of horizontal whitespace
+  // inside the viewBox AND the SVG fits-to-container with extra margin, so
+  // the map ends up tiny on screen. By matching the viewBox aspect to each
+  // region's natural projected aspect, the projection fills the viewBox AND
+  // the SVG fits its container more tightly, so the map fills more pixels.
+  const { activeProj, activePath, activeOutline, activeName, viewBoxW, viewBoxH } = useMemo(() => {
     if (!region) {
       return {
         activeProj: PROJECTION,
         activePath: PATH,
         activeOutline: NATION_OUTLINE,
         activeName: 'United States',
+        viewBoxW: MAP_W,
+        viewBoxH: MAP_H,
       };
     }
     const geo = REGION_GEOMETRY[region];
@@ -3388,18 +3398,51 @@ function SightingsMapView({
       return {
         activeProj: PROJECTION, activePath: PATH,
         activeOutline: NATION_OUTLINE, activeName: 'United States',
+        viewBoxW: MAP_W, viewBoxH: MAP_H,
       };
     }
-    // 24-pixel padding inside the viewBox so the region's edges don't kiss
-    // the map card border. Use a region-specific projection factory when
-    // one is registered (currently AK and HI, which need their own conic
-    // parameters); fall back to plain geoAlbers for everywhere else.
+    // Step 1: build the appropriate projection factory. AK and HI need
+    // custom conic parameters; everywhere else is plain geoAlbers.
     const projFactory = REGION_PROJ_FN[region] || (() => geoAlbers());
+
+    // Step 2: trial projection at default scale/translate to discover the
+    // geometry's natural projected aspect. The absolute bounds don't matter
+    // here — only the ratio of width to height of the projected shape.
+    const trial = projFactory();
+    const trialBounds = geoPath(trial).bounds(geo);
+    const trialW = trialBounds[1][0] - trialBounds[0][0];
+    const trialH = trialBounds[1][1] - trialBounds[0][1];
+    const aspect = trialW / trialH; // wider regions → > 1, taller → < 1
+
+    // Step 3: pick a viewBox that matches the natural aspect. Keep the long
+    // axis at LONG_DIM and let the short axis scale. Clamp the short axis so
+    // we don't produce ridiculously thin viewBoxes for outlier shapes.
+    const LONG_DIM = 700;
+    const MIN_SHORT_DIM = 280;
+    let vbW, vbH;
+    if (aspect >= 1) {
+      vbW = LONG_DIM;
+      vbH = Math.max(MIN_SHORT_DIM, Math.round(LONG_DIM / aspect));
+    } else {
+      vbH = LONG_DIM;
+      vbW = Math.max(MIN_SHORT_DIM, Math.round(LONG_DIM * aspect));
+    }
+
+    // Step 4: small inner padding (8px instead of 24) so the geometry kisses
+    // the viewBox edges, squeezing out a bit more zoom.
+    const PAD = 8;
     const p = projFactory().fitExtent(
-      [[24, 24], [MAP_W - 24, MAP_H - 24]],
+      [[PAD, PAD], [vbW - PAD, vbH - PAD]],
       geo,
     );
-    return { activeProj: p, activePath: geoPath(p), activeOutline: geo, activeName: meta.name };
+    return {
+      activeProj: p,
+      activePath: geoPath(p),
+      activeOutline: geo,
+      activeName: meta.name,
+      viewBoxW: vbW,
+      viewBoxH: vbH,
+    };
   }, [region]);
 
   // Project points to pixel space. Each point is [lng, lat, weight] where
@@ -3429,7 +3472,7 @@ function SightingsMapView({
       .x((d) => d[0])
       .y((d) => d[1])
       .weight((d) => Math.sqrt(d[2]))
-      .size([MAP_W, MAP_H])
+      .size([viewBoxW, viewBoxH])
       .cellSize(2)
       .bandwidth(5)
       .thresholds(28);
@@ -3442,7 +3485,7 @@ function SightingsMapView({
       totalSpeciesAcrossLocations: totalW,
       totalLocations: projected.length,
     };
-  }, [points, region, activeProj]);
+  }, [points, region, activeProj, viewBoxW, viewBoxH]);
 
   // Highest single-location diversity (useful in the header)
   const peakDiversity = useMemo(() => {
@@ -3894,7 +3937,7 @@ function SightingsMapView({
           <div className="relative flex-1 min-h-0 flex flex-col w-full" ref={svgContainerRef}>
             <div className="flex-1 min-h-0 flex items-center justify-center relative">
               <svg
-                viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+                viewBox={`0 0 ${viewBoxW} ${viewBoxH}`}
                 xmlns="http://www.w3.org/2000/svg"
                 className="max-w-full max-h-full"
                 preserveAspectRatio="xMidYMid meet"
@@ -3910,8 +3953,8 @@ function SightingsMapView({
                       roughly 15 user-units past the coast. The mask outline is
                       `activeOutline` so it tracks the current zoom scope —
                       USA when full, region polygon when zoomed. */}
-                  <mask id="us-mask" maskUnits="userSpaceOnUse" x={0} y={0} width={MAP_W} height={MAP_H}>
-                    <rect x={0} y={0} width={MAP_W} height={MAP_H} fill="black" />
+                  <mask id="us-mask" maskUnits="userSpaceOnUse" x={0} y={0} width={viewBoxW} height={viewBoxH}>
+                    <rect x={0} y={0} width={viewBoxW} height={viewBoxH} fill="black" />
                     <path
                       d={activePath(activeOutline) || ''}
                       fill="white"
