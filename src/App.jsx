@@ -181,7 +181,7 @@ const NATIVE_SPECIES = [
   ["Semipalmated Plover","Charadrius semipalmatus"],
   ["Piping Plover","Charadrius melodus"],
   ["Lesser Sand-Plover","Charadrius mongolus"],
-  ["Wilson's Plover","Charadrius wilsonia"],
+  ["Wilson's Plover","Anarhynchus wilsonia"],
   ["Mountain Plover","Charadrius montanus"],
   ["Snowy Plover","Charadrius nivosus"],
   ["Upland Sandpiper","Bartramia longicauda"],
@@ -393,7 +393,7 @@ const NATIVE_SPECIES = [
   ["Golden Eagle","Aquila chrysaetos"],
   ["Northern Harrier","Circus hudsonius"],
   ["Sharp-shinned Hawk","Accipiter striatus"],
-  ["Cooper's Hawk","Accipiter cooperii"],
+  ["Cooper's Hawk","Astur cooperii"],
   ["Northern Goshawk","Accipiter gentilis"],
   ["Bald Eagle","Haliaeetus leucocephalus"],
   ["Mississippi Kite","Ictinia mississippiensis"],
@@ -580,7 +580,7 @@ const NATIVE_SPECIES = [
   ["Black-capped Gnatcatcher","Polioptila nigriceps"],
   ["American Dipper","Cinclus mexicanus"],
   ["Golden-crowned Kinglet","Regulus satrapa"],
-  ["Ruby-crowned Kinglet","Regulus calendula"],
+  ["Ruby-crowned Kinglet","Corthylio calendula"],
   ["Arctic Warbler","Phylloscopus borealis"],
   ["Wrentit","Chamaea fasciata"],
   ["Millerbird","Acrocephalus familiaris"],
@@ -1193,21 +1193,31 @@ function parseEBirdCsv(file) {
             // "US-NC" → "NC" → "se". Cheap & only runs once per row.
             const stateAbbr = (r[stateKey] || '').slice(3);
             const regionId = STATE_TO_REGION[stateAbbr] || null;
+            // eBird CSVs export subspecies-level reports as TRINOMIALS, e.g.
+            // "Dryobates villosus septentrionalis" for Eastern Hairy Woodpecker.
+            // Those won't match a binomial NATIVE_SCI entry. Strip to first two
+            // tokens so subspecies reports collapse to their parent species.
+            // (Spuhs/slashes/hybrids are already filtered by isCountable above,
+            // so the first two tokens here are always a valid Genus species.)
+            const baseSci = sci ? sci.split(/\s+/).slice(0, 2).join(' ') : '';
 
             if (isCountable(sci, com)) {
-              const speciesKey = sci || com;
+              // Use the binomial form as the species key so subspecies reports
+              // don't create phantom "extra" species in counters and tips.
+              const speciesKey = baseSci || com;
               allSpecies.add(speciesKey);
-              if (sci && NATIVE_SCI.has(sci)) {
-                nativeSci.add(sci);
+              if (baseSci && NATIVE_SCI.has(baseSci)) {
+                nativeSci.add(baseSci);
                 if (regionId) {
                   let set = speciesByRegion.get(regionId);
                   if (!set) { set = new Set(); speciesByRegion.set(regionId, set); }
-                  set.add(sci);
+                  set.add(baseSci);
                 }
               } else if (sci) {
                 // Sci name present but not in our native checklist. Could be a
                 // legitimate exotic or a taxonomy-update miss. Bucket it for
-                // the diagnostic.
+                // the diagnostic — under the *original* sci so we can see the
+                // exact name eBird is exporting.
                 let entry = unrecognized.get(sci);
                 if (!entry) { entry = { sci, com: com || '', count: 0 }; unrecognized.set(sci, entry); }
                 entry.count++;
@@ -1230,13 +1240,13 @@ function parseEBirdCsv(file) {
                   locations.set(locId, loc);
                 }
                 loc.species.add(speciesKey);
-                if (sci && NATIVE_SCI.has(sci)) {
-                  loc.nativeSpecies.add(sci);
+                if (baseSci && NATIVE_SCI.has(baseSci)) {
+                  loc.nativeSpecies.add(baseSci);
                 }
-                // Track the first sighting of this species. Use scientific name
-                // when available; otherwise the common name (so non-native
-                // countable species still contribute to the discovery map).
-                const key = sci || com;
+                // Track the first sighting of this species. Use the binomial
+                // sci when available so subspecies reports of one species map
+                // to a single "first sighting" rather than producing duplicates.
+                const key = baseSci || com;
                 if (key && dtValid) {
                   const ts = dt.getTime();
                   const prev = firstSightingByss.get(key);
