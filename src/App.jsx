@@ -3668,22 +3668,28 @@ const REGION_PROJ_FN = {
 // a hard 60%-alpha edge.
 function heatColor(t) {
   t = Math.max(0, Math.min(1, t));
-  // Birdfolk heat ramp tuned for the pale mint basemap (#c8e6c8).
+  // Classic thermal-imaging ramp: blue → green → yellow → orange → dark red.
+  // Reads like a temperature gradient, so the visual story tells itself:
+  // cool-blue haze at the fringe of activity, warm-red at hotspot cores.
   //
-  // The earlier ramp started at pale sunshine yellow, which sat at almost
-  // the same brightness as mint and faded out visually. This version skips
-  // pale yellow entirely and starts at a saturated amber, then rolls through
-  // warm coral into a deep magenta-red core. Pink/magenta sits opposite
-  // green on the color wheel, so the high-density blobs hit maximum contrast
-  // against the mint states, and the warm amber low end has enough chroma
-  // to stay legible at low opacity.
+  // Tuned for the pale mint basemap (#c8e6c8):
+  // - The cool end uses a lighter sky-blue at low opacity so a single
+  //   low-density sighting reads as a soft wash that blends into the
+  //   open landscape rather than a hard dark dot competing for attention.
+  // - The green band uses a darker, more saturated green than the mint
+  //   so it stays distinct rather than blending into the basemap.
+  // - Warm bands (yellow, orange, dark red) keep high opacity so cluster
+  //   cores still bloom strongly through the spectrum.
+  // - The very edge stays transparent so contours feather softly into
+  //   the basemap rather than terminating in a hard line.
   const stops = [
-    { at: 0.00, c: [255, 240, 210, 0.00] }, // transparent warm cream fringe
-    { at: 0.12, c: [245, 162,  55, 0.60] }, // saturated amber — visible on mint
-    { at: 0.32, c: [240, 110,  85, 0.75] }, // warm pink-orange
-    { at: 0.55, c: [232,  80,  95, 0.85] }, // coral red
-    { at: 0.78, c: [200,  50, 110, 0.90] }, // deep magenta-red
-    { at: 1.00, c: [140,  30,  70, 0.94] }, // burgundy core
+    { at: 0.00, c: [255, 245, 225, 0.00] }, // transparent cream fringe
+    { at: 0.10, c: [105, 150, 200, 0.28] }, // soft sky-blue haze (faded)
+    { at: 0.25, c: [ 55, 130, 200, 0.55] }, // mid blue
+    { at: 0.42, c: [ 50, 160, 100, 0.78] }, // saturated green
+    { at: 0.60, c: [225, 195,  55, 0.88] }, // yellow
+    { at: 0.80, c: [232, 130,  45, 0.92] }, // orange
+    { at: 1.00, c: [135,  25,  25, 0.95] }, // dark red core
   ];
   for (let i = 1; i < stops.length; i++) {
     if (t <= stops[i].at) {
