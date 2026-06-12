@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Papa from 'papaparse';
 import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon, ChevronLeft, ChevronRight, Share2, Plus, Download } from 'lucide-react';
 import { storage } from './lib/storage.js';
-import { BluebirdMascot, Cardinal, Cloud, Sparkle, Compass, TreeIcon, HeartIcon, EyeIcon, CalendarIcon, ChecklistIcon } from './Illustrations.jsx';
+import { BluebirdMascot, Cardinal, Cloud, Sparkle, Compass, TreeIcon, HeartIcon, EyeIcon, CalendarIcon, ChecklistIcon, CURRENT_MASCOT } from './Illustrations.jsx';
 import { geoAlbersUsa, geoAlbers, geoPath, geoContains, geoCentroid } from 'd3-geo';
 import { contourDensity } from 'd3-contour';
 import { feature, mesh, merge } from 'topojson-client';
@@ -4073,6 +4073,21 @@ function SightingsMapView({
         img.src = svgUrl;
       });
 
+      // Load the current session's bird mascot PNG to draw next to the
+      // "Birder" wordmark. Same image that's in the dashboard banner so
+      // the share is visually consistent with what the sharer is looking at.
+      const mascotImg = new Image();
+      mascotImg.crossOrigin = 'anonymous';
+      try {
+        await new Promise((resolve, reject) => {
+          mascotImg.onload = resolve;
+          mascotImg.onerror = () => reject(new Error('Mascot load failed'));
+          mascotImg.src = CURRENT_MASCOT.src;
+        });
+      } catch {
+        // Non-fatal: if the mascot fails to load, we just skip drawing it.
+      }
+
       // 9:16 portrait — Instagram Stories / Reels / TikTok native dimensions
       const W = 1080, H = 1920;
       const canvas = document.createElement('canvas');
@@ -4133,27 +4148,19 @@ function SightingsMapView({
       const pct = (count / TOTAL) * 100;
       const cx = W / 2;
 
-      // === Top-left logo: feather + BIRDER wordmark ===
-      ctx.save();
-      ctx.translate(60, 60);
-      ctx.scale(2.1, 2.1);
-      ctx.strokeStyle = '#ff6b6b';
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      const feather = new Path2D('M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z');
-      ctx.stroke(feather);
-      ctx.beginPath();
-      ctx.moveTo(16, 8);  ctx.lineTo(2, 22);  ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(17.5, 15); ctx.lineTo(9, 15); ctx.stroke();
-      ctx.restore();
+      // === Top-left logo: PNG bird mascot + "Birder" wordmark ===
+      // Uses the same randomly-chosen-per-session mascot that's in the
+      // dashboard banner so the share looks like a screenshot of the app
+      // they're sharing, not a different design.
+      if (mascotImg && mascotImg.complete && mascotImg.naturalWidth) {
+        ctx.drawImage(mascotImg, 50, 40, 80, 80);
+      }
 
       ctx.font = '700 56px Fredoka, system-ui, sans-serif';
       ctx.fillStyle = '#2a3445';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText('Birder', 130, 100);
+      ctx.fillText('Birder', 140, 100);
 
       // === Hero glass card: count + percentage ===
       const heroX = 60, heroY = 180, heroW = 960, heroH = 480;

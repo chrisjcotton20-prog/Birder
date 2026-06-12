@@ -13,31 +13,50 @@ import React from 'react';
 
 // ---------- Birds ----------
 
-export function BluebirdMascot({ size = 64, className = '' }) {
-  // Chubby cartoon bluebird — main app mascot. Has a wheat-orange beak,
-  // visible feet, cheek blush, eye sparkle. Cast a soft shadow to ground it.
+// Bird mascot rotation. Each PNG sits under /public/birds/ and is served as
+// /birds/<file>.png at runtime. We pick one at module load time so the same
+// bird shows across the dashboard banner, loading splash, and share card
+// within a single session — but a new pick happens on every fresh app load
+// (refresh, app reopen, new tab). This gives the "different bird every time
+// I open the app" behavior without it being jarring mid-session.
+//
+// Adding more birds: drop a PNG into /public/birds/ and add an entry here.
+// PNGs should be square with transparent background and the bird centered.
+export const BIRD_MASCOTS = [
+  { src: '/birds/red_headed_woodpecker.png', name: 'Red-headed Woodpecker' },
+  { src: '/birds/bald_eagle.png',            name: 'Bald Eagle' },
+  { src: '/birds/cardinal.png',              name: 'Cardinal' },
+  { src: '/birds/heron.png',                 name: 'Great Blue Heron' },
+  { src: '/birds/piping_plover.png',         name: 'Piping Plover' },
+  { src: '/birds/blue_jay.png',              name: 'Blue Jay' },
+];
+
+// Random pick at module evaluation. Stays constant for the session.
+export const CURRENT_MASCOT = BIRD_MASCOTS[Math.floor(Math.random() * BIRD_MASCOTS.length)];
+
+export function BirdMascot({ size = 64, className = '', style = {} }) {
   return (
-    <svg viewBox="0 0 100 100" width={size} height={size} className={className} xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="50" cy="92" rx="22" ry="3" fill="rgba(40,30,60,0.18)" />
-      <path d="M30 50 C30 35, 42 25, 55 27 C70 29, 80 40, 80 55 C80 72, 68 84, 52 84 C36 84, 30 70, 30 60 Z"
-            fill="#6cb8e4" stroke="#2a5680" strokeWidth="2" />
-      <path d="M42 60 C42 50, 50 45, 58 47 C66 49, 70 58, 68 66 C66 74, 56 78, 48 76 C40 74, 42 66, 42 60 Z"
-            fill="#fff8e8" />
-      <path d="M58 50 C68 50, 76 58, 74 68 C72 76, 64 76, 58 70 Z"
-            fill="#3d7eb8" stroke="#2a5680" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M60 56 L70 60" stroke="#2a5680" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M59 62 L68 66" stroke="#2a5680" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M32 42 Q34 32 42 30 Q40 36 38 42 Z" fill="#3d7eb8" stroke="#2a5680" strokeWidth="2" strokeLinejoin="round" />
-      <circle cx="40" cy="48" r="6" fill="#fff" />
-      <circle cx="38" cy="49" r="3.5" fill="#2a3445" />
-      <circle cx="37" cy="48" r="1.2" fill="#fff" />
-      <path d="M30 55 L22 53 L30 60 Z" fill="#f6a13a" stroke="#a96a18" strokeWidth="1.5" strokeLinejoin="round" />
-      <ellipse cx="36" cy="58" rx="3.5" ry="2" fill="#ff9bb3" opacity="0.7" />
-      <path d="M46 84 L46 88 M44 88 L48 88 M53 84 L53 88 M51 88 L55 88"
-            stroke="#f6a13a" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+    <img
+      src={CURRENT_MASCOT.src}
+      width={size}
+      height={size}
+      alt={CURRENT_MASCOT.name}
+      className={className}
+      style={{
+        display: 'block',
+        objectFit: 'contain',
+        // Soft drop shadow grounds the bird against the banner background
+        // without competing with its baked-in outline.
+        filter: 'drop-shadow(0 2px 2px rgba(40,30,60,0.22))',
+        ...style,
+      }}
+    />
   );
 }
+
+// Back-compat: the rest of App.jsx still imports BluebirdMascot. Keep the
+// old name as an alias so we don't have to touch every caller.
+export const BluebirdMascot = BirdMascot;
 
 export function Cardinal({ size = 48, className = '' }) {
   // Cute cardinal — used in the "Try Spotting" discovery card and elsewhere
