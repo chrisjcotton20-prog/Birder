@@ -1964,35 +1964,47 @@ export default function BirdLifeTracker() {
                   At <span className="font-mono text-xs ink">ebird.org</span>: My eBird → Download My Data.
                   You'll be emailed a CSV — upload it here.
                 </p>
-                {/* Upload CSV — uses a <label>-wraps-<input> pattern instead of
-                    a hidden input + JS .click(). Reason: iOS Safari standalone
-                    PWAs are unreliable at opening the file picker when the
-                    underlying input is display:none and the click is fired
-                    programmatically. The picker either fails to open or
-                    returns the user to a blank gray screen. A <label>
-                    wrapping a visually-hidden input lets iOS open the picker
-                    natively via the tap on the label, which always works.
-                    The input uses off-screen positioning (not display:none)
-                    so iOS still treats it as a live element. */}
-                <label
-                  className="btn-ink rounded-full px-5 py-2.5 text-sm inline-flex items-center gap-2"
-                  style={loading ? { pointerEvents: 'none', opacity: 0.6 } : { cursor: 'pointer' }}
-                >
-                  {loading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
-                  {loading ? 'Reading…' : 'Upload CSV'}
+                {/* Upload CSV — uses an "input overlay" pattern. The file
+                    input sits as a fully-transparent layer ON TOP of a
+                    decorative button-styled <span>, sized to fill it. The
+                    user's tap goes directly to the input element, no label
+                    forwarding, no programmatic .click(), no display:none
+                    wizardry. This is the most reliable iOS Safari standalone
+                    PWA pattern — every other approach (display:none + ref
+                    click, label-wraps-input, button + sibling input) has
+                    edge cases on at least one iOS version. Putting the
+                    input ON TOP of the visual means iOS treats every tap
+                    as a direct, user-initiated file input activation, which
+                    has the strongest "user gesture" preservation. */}
+                <div className="relative inline-flex">
+                  <span
+                    className="btn-ink rounded-full px-5 py-2.5 text-sm inline-flex items-center gap-2 select-none"
+                    style={{ pointerEvents: 'none', opacity: loading ? 0.6 : 1 }}
+                    aria-hidden="true"
+                  >
+                    {loading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {loading ? 'Reading…' : 'Upload CSV'}
+                  </span>
                   <input
                     type="file"
                     accept=".csv,text/csv,text/plain,application/vnd.ms-excel"
                     onChange={(e) => { onCsvFile(e.target.files?.[0]); e.target.value = ''; }}
                     disabled={loading}
+                    aria-label="Upload CSV"
                     style={{
                       position: 'absolute',
-                      width: 1, height: 1, padding: 0, margin: -1,
-                      overflow: 'hidden', clip: 'rect(0,0,0,0)',
-                      whiteSpace: 'nowrap', border: 0,
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      opacity: 0,
+                      cursor: 'pointer',
+                      // Suppress iOS's default native styling that can size
+                      // the input larger than its container and offset the
+                      // tap target.
+                      fontSize: 0,
                     }}
                   />
-                </label>
+                </div>
               </div>
             </div>
 
@@ -2370,26 +2382,34 @@ export default function BirdLifeTracker() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {/* Re-upload CSV — see note above on the label/input pattern. */}
-                <label
-                  className="btn-ghost rounded-full px-3.5 py-2 text-xs inline-flex items-center gap-1.5"
-                  style={loading ? { pointerEvents: 'none', opacity: 0.6 } : { cursor: 'pointer' }}
-                >
-                  {loading ? <RefreshCw size={12} className="animate-spin" /> : <Upload size={12} />}
-                  Re-upload CSV
+                {/* Re-upload CSV — see overlay pattern note on the empty-state
+                    Upload CSV button above. */}
+                <div className="relative inline-flex">
+                  <span
+                    className="btn-ghost rounded-full px-3.5 py-2 text-xs inline-flex items-center gap-1.5 select-none"
+                    style={{ pointerEvents: 'none', opacity: loading ? 0.6 : 1 }}
+                    aria-hidden="true"
+                  >
+                    {loading ? <RefreshCw size={12} className="animate-spin" /> : <Upload size={12} />}
+                    Re-upload CSV
+                  </span>
                   <input
                     type="file"
                     accept=".csv,text/csv,text/plain,application/vnd.ms-excel"
                     onChange={(e) => { onCsvFile(e.target.files?.[0]); e.target.value = ''; }}
                     disabled={loading}
+                    aria-label="Re-upload CSV"
                     style={{
                       position: 'absolute',
-                      width: 1, height: 1, padding: 0, margin: -1,
-                      overflow: 'hidden', clip: 'rect(0,0,0,0)',
-                      whiteSpace: 'nowrap', border: 0,
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      opacity: 0,
+                      cursor: 'pointer',
+                      fontSize: 0,
                     }}
                   />
-                </label>
+                </div>
               </div>
             </div>
           </main>
