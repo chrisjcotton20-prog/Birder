@@ -3768,7 +3768,7 @@ const REGION_PROJ_FN = {
 // in the warm range, ~6 hits saturation, and beyond that everything
 // clamps. Tune up if your hotspots feel too saturated; tune down if the
 // hot end is too hard to reach.
-const HEATMAP_SATURATION_N = 6;
+const HEATMAP_SATURATION_N = 18;
 
 // Floor anchor: the smallest visible blob always renders at this point on
 // the colormap. 0.20 lands solidly inside the visible blue band of
@@ -4056,7 +4056,7 @@ function SightingsMapView({
     // gradients with detail at both ends — bumped so the cubic compression
     // doesn't show visible banding in the long blue/green portion of the
     // ramp where many contour lines now cluster.
-    const tHi = singlePointRef * HEATMAP_SATURATION_N * 2;
+    const tHi = singlePointRef * HEATMAP_SATURATION_N;
     const tLo = singlePointRef * 0.3;
     const thresholds = Array.from({ length: 40 }, (_, i) =>
       tLo + (tHi - tLo) * (i / 39)
