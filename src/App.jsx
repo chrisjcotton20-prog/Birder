@@ -3768,7 +3768,7 @@ const REGION_PROJ_FN = {
 // in the warm range, ~6 hits saturation, and beyond that everything
 // clamps. Tune up if your hotspots feel too saturated; tune down if the
 // hot end is too hard to reach.
-const HEATMAP_SATURATION_N = 18;
+const HEATMAP_SATURATION_N = 12;
 
 // Floor anchor: the smallest visible blob always renders at this point on
 // the colormap. 0.20 lands solidly inside the visible blue band of
@@ -3808,7 +3808,7 @@ function densityT(value, singlePointRef) {
   if (value <= floor) return HEATMAP_MIN_T;
   if (value >= cap)   return 1.0;
   const r = (value - floor) / (cap - floor);  // 0..1 inside the band
-  return HEATMAP_MIN_T + (1 - HEATMAP_MIN_T) * r * r * r;
+  return HEATMAP_MIN_T + (1 - HEATMAP_MIN_T) * Math.pow(r, 1.5);
 }
 
 function heatColor(t) {
