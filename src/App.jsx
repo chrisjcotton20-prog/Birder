@@ -3808,7 +3808,7 @@ function densityT(value, singlePointRef) {
   if (value <= floor) return HEATMAP_MIN_T;
   if (value >= cap)   return 1.0;
   const r = (value - floor) / (cap - floor);  // 0..1 inside the band
-  return HEATMAP_MIN_T + (1 - HEATMAP_MIN_T) * Math.pow(r, 1.5);
+  return HEATMAP_MIN_T + (1 - HEATMAP_MIN_T) * Math.pow(r, 1.1);
 }
 
 function heatColor(t) {
