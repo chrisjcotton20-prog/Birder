@@ -3789,18 +3789,24 @@ const HEATMAP_MIN_T = 0.20;
 // always lands at the same place on the spectrum regardless of how dense
 // the user's hotspots become.
 //
-// Why cubic compression on the normalized interval: linear scaling makes
-// the middle of the band (50% of the way to cap) land at green-yellow,
-// and squared makes it land at blue-green. Cubic pulls the middle of the
-// band even further DOWN toward blue, so the hot pink-red core is
-// reserved only for the very densest peaks. A 50%-of-cap value renders
-// at t=0.30 (blue) instead of t=0.40 (green) or t=0.60 (yellow). Both
-// endpoints stay anchored: floor → blue, cap → max color, so the
-// scale-stable behavior is preserved.
+// Why a CONCAVE exponent (r^0.9) on the normalized interval: real eBird
+// data is spatially spread out, so most colored area comes from isolated
+// strong locations whose kernel density peaks at only ~4-5x singlePointRef,
+// not from tightly-stacked clusters. A convex curve (squared/cubic) buried
+// all of that range in blue, leaving the full rainbow unused. A mildly
+// concave curve LIFTS those mid-density locations up into green/yellow so
+// the whole spectrum shows, while the cap (12x) keeps red reserved for the
+// rare tightly-overlapping cluster cores (e.g. dense metro hotspots). The
+// tradeoff: a true single point reads faint green rather than pure blue,
+// which is acceptable since isolated singles are rare in practice.
+// Both endpoints stay anchored: floor -> blue, cap -> red, preserving
+// scale stability as data grows.
 //
-// Tuning the exponent: r*r (squared) gives a moderate cool-bias, r*r*r
-// (cubic, current) gives a strong cool-bias, Math.pow(r, 4) gives an
-// extreme cool-bias where only the absolute hottest peaks reach red.
+// Tuning the exponent: <1 (concave) spreads low densities UP into warm
+// colors (more rainbow); 1.0 is linear; >1 (convex, e.g. cubic) pushes the
+// middle DOWN toward blue so only the hottest peaks reach red. Was cubic
+// (r*r*r) when the cap was 6x and data was assumed to stack into dense
+// clusters; switched to 0.9 + cap 12 after profiling real spread-out data.
 function densityT(value, singlePointRef) {
   if (singlePointRef <= 0) return 0;
   const floor = singlePointRef * 0.3;
@@ -3808,7 +3814,7 @@ function densityT(value, singlePointRef) {
   if (value <= floor) return HEATMAP_MIN_T;
   if (value >= cap)   return 1.0;
   const r = (value - floor) / (cap - floor);  // 0..1 inside the band
-  return HEATMAP_MIN_T + (1 - HEATMAP_MIN_T) * Math.pow(r, 1.1);
+  return HEATMAP_MIN_T + (1 - HEATMAP_MIN_T) * Math.pow(r, 0.9);
 }
 
 function heatColor(t) {
@@ -4049,11 +4055,11 @@ function SightingsMapView({
     // every density level always has the same meaning:
     //   - At 0.3× ref: edge of a single isolated weight-1 point
     //   - At 1× ref: peak of an isolated point
-    //   - At 6× ref (SATURATION_N): "fully saturated red"
-    //   - Above 6×: still red, but extra rings give visual depth inside
+    //   - At 12× ref (SATURATION_N): "fully saturated red"
+    //   - Above 12×: still red, but extra rings give visual depth inside
     //     dense clusters
     // 40 thresholds (was 28) spread across this range give us smooth color
-    // gradients with detail at both ends — bumped so the cubic compression
+    // gradients with detail at both ends — bumped so the curve compression
     // doesn't show visible banding in the long blue/green portion of the
     // ramp where many contour lines now cluster.
     const tHi = singlePointRef * HEATMAP_SATURATION_N;
