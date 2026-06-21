@@ -181,10 +181,10 @@ const NATIVE_SPECIES = [
   ["Common Ringed Plover","Charadrius hiaticula"],
   ["Semipalmated Plover","Charadrius semipalmatus"],
   ["Piping Plover","Charadrius melodus"],
-  ["Lesser Sand-Plover","Charadrius mongolus"],
+  ["Lesser Sand-Plover","Anarhynchus mongolus"],
   ["Wilson's Plover","Anarhynchus wilsonia"],
-  ["Mountain Plover","Charadrius montanus"],
-  ["Snowy Plover","Charadrius nivosus"],
+  ["Mountain Plover","Anarhynchus montanus"],
+  ["Snowy Plover","Anarhynchus nivosus"],
   ["Upland Sandpiper","Bartramia longicauda"],
   ["Bristle-thighed Curlew","Numenius tahitiensis"],
   ["Whimbrel","Numenius phaeopus"],
@@ -272,7 +272,7 @@ const NATIVE_SPECIES = [
   ["Laughing Gull","Leucophaeus atricilla"],
   ["Franklin's Gull","Leucophaeus pipixcan"],
   ["Heermann's Gull","Larus heermanni"],
-  ["Mew Gull","Larus canus"],
+  ["Short-billed Gull","Larus brachyrhynchus"],
   ["Ring-billed Gull","Larus delawarensis"],
   ["Western Gull","Larus occidentalis"],
   ["Yellow-footed Gull","Larus livens"],
@@ -395,7 +395,7 @@ const NATIVE_SPECIES = [
   ["Northern Harrier","Circus hudsonius"],
   ["Sharp-shinned Hawk","Accipiter striatus"],
   ["Cooper's Hawk","Astur cooperii"],
-  ["Northern Goshawk","Accipiter gentilis"],
+  ["American Goshawk","Astur atricapillus"],
   ["Bald Eagle","Haliaeetus leucocephalus"],
   ["Mississippi Kite","Ictinia mississippiensis"],
   ["Snail Kite","Rostrhamus sociabilis"],
@@ -804,6 +804,66 @@ const NATIVE_SPECIES = [
 const TOTAL = NATIVE_SPECIES.length;
 const NATIVE_SCI = new Set(NATIVE_SPECIES.map(([, s]) => s));
 
+// eBird scientific-name ALIASES.
+// eBird/Clements periodically shuffles species between genera, and different
+// export vintages emit different binomials for the SAME species. Our matcher
+// keys on exact binomial strings, so a genus disagreement silently drops the
+// species from the count (it lands in the "unrecognized" diagnostic bucket
+// instead). This map normalizes known eBird-exported synonyms to the exact
+// binomial used in NATIVE_SPECIES above, so both spellings count.
+//
+// Format: 'eBird-exported binomial' -> 'our canonical NATIVE_SPECIES binomial'
+//
+// The big one is the "pied woodpecker" genus split: eBird has placed the
+// strong-billed clade (Hairy, White-headed, Arizona, Red-cockaded) in
+// Leuconotopicus in some taxonomy versions while keeping the small-billed
+// clade (Downy, Nuttall's, Ladder-backed) in Dryobates. Our list uses
+// Dryobates throughout, so the Leuconotopicus exports need aliasing.
+// Picoides spellings are included too, covering older AOS-style exports.
+// When you discover a new miss in the Settings "unrecognized names"
+// diagnostic, add a line here mapping it to the matching NATIVE_SPECIES name.
+const SCI_ALIASES = {
+  // Hairy Woodpecker
+  'Leuconotopicus villosus': 'Dryobates villosus',
+  'Picoides villosus': 'Dryobates villosus',
+  // White-headed Woodpecker
+  'Leuconotopicus albolarvatus': 'Dryobates albolarvatus',
+  'Picoides albolarvatus': 'Dryobates albolarvatus',
+  // Arizona Woodpecker
+  'Leuconotopicus arizonae': 'Dryobates arizonae',
+  'Picoides arizonae': 'Dryobates arizonae',
+  // Red-cockaded Woodpecker
+  'Leuconotopicus borealis': 'Dryobates borealis',
+  'Picoides borealis': 'Dryobates borealis',
+  // Small-billed clade — older Picoides exports → our Dryobates
+  'Picoides pubescens': 'Dryobates pubescens',
+  'Picoides nuttallii': 'Dryobates nuttallii',
+  'Picoides scalaris': 'Dryobates scalaris',
+
+  // Species SPLITS where the old binomial now denotes an Old World bird that
+  // is NOT on our native list. Aliasing the legacy name to the current US
+  // species lets pre-split exports still count. Tradeoff: a genuine Old World
+  // vagrant (Common Gull / Eurasian Goshawk) in an old export would count as
+  // its American sibling — acceptable, since those vagrants aren't in the 774
+  // and current eBird exports already use the new names directly.
+  'Larus canus': 'Larus brachyrhynchus',         // Mew Gull → Short-billed Gull (2021)
+  'Accipiter gentilis': 'Astur atricapillus',    // Northern → American Goshawk (2024)
+
+  // Plover genus move (eBird 2024): Charadrius → Anarhynchus for the
+  // Kentish/Snowy/sand-plover group. Pure genus rename (same species), so
+  // aliasing the legacy Charadrius name is unambiguous. Our list now uses the
+  // current Anarhynchus names; these let pre-2024 exports still count.
+  // (Killdeer, Piping, Semipalmated, Common Ringed Plover did NOT move — they
+  // stay Charadrius and must NOT be aliased.)
+  'Charadrius nivosus': 'Anarhynchus nivosus',   // Snowy Plover
+  'Charadrius montanus': 'Anarhynchus montanus', // Mountain Plover
+  'Charadrius mongolus': 'Anarhynchus mongolus', // Lesser Sand-Plover
+  'Charadrius wilsonia': 'Anarhynchus wilsonia', // Wilson's Plover (already in list as Anarhynchus)
+};
+
+// Normalize an exported binomial to our canonical checklist name.
+const canonicalSci = (s) => (s && SCI_ALIASES[s]) || s;
+
 // Family boundaries — each entry: [first_sci_name_in_family, family_display_name].
 // In ABA taxonomic order; species inherit the most-recent boundary's family.
 const FAMILY_BOUNDARIES = [
@@ -923,7 +983,7 @@ const CODE_3_SCI = new Set([
   "Basilinna leucotis",
   "Saucerottia beryllina",
   "Charadrius hiaticula",
-  "Charadrius mongolus",
+  "Anarhynchus mongolus",
   "Limosa limosa",
   "Calidris pugnax",
   "Calidris acuminata",
@@ -1200,7 +1260,9 @@ function parseEBirdCsv(file) {
             // tokens so subspecies reports collapse to their parent species.
             // (Spuhs/slashes/hybrids are already filtered by isCountable above,
             // so the first two tokens here are always a valid Genus species.)
-            const baseSci = sci ? sci.split(/\s+/).slice(0, 2).join(' ') : '';
+            // canonicalSci() then maps eBird genus-synonyms (e.g.
+            // "Leuconotopicus villosus" -> "Dryobates villosus") to our list.
+            const baseSci = sci ? canonicalSci(sci.split(/\s+/).slice(0, 2).join(' ')) : '';
 
             if (isCountable(sci, com)) {
               // Use the binomial form as the species key so subspecies reports
