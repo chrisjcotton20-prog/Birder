@@ -1284,6 +1284,621 @@ const SPECIES_MOVEMENT = {
   'Tyrannus tyrannus': 'migratory',
   'Tyrannus vociferans': 'migratory',
   'Zonotrichia albicollis': 'migratory',
+  // ---- remaining checklist species (lower-48 rule) ----
+  'Loxops caeruleirostris': 'resident',  // Akekee
+  'Hemignathus wilsoni': 'resident',  // Akiapolaau
+  'Oreomystis bairdi': 'resident',  // Akikiki
+  'Palmeria dolei': 'resident',  // Akohekohe
+  'Icterus gularis': 'resident',  // Altamira Oriole
+  'Phoenicopterus ruber': 'resident',  // American Flamingo
+  'Picoides dorsalis': 'resident',  // American Three-toed Woodpecker
+  'Magumma parva': 'resident',  // Anianiau
+  'Himatione sanguinea': 'resident',  // Apapane
+  'Falco femoralis': 'resident',  // Aplomado Falcon
+  'Dryobates arizonae': 'resident',  // Arizona Woodpecker
+  'Icterus graduacauda': 'resident',  // Audubon's Oriole
+  'Puffinus lherminieri': 'resident',  // Audubon's Shearwater
+  'Tyto alba': 'resident',  // Barn Owl
+  'Artemisiospiza belli': 'resident',  // Bell's Sparrow
+  'Saucerottia beryllina': 'resident',  // Berylline Hummingbird
+  'Anous minutus': 'resident',  // Black Noddy
+  'Haematopus bachmani': 'resident',  // Black Oystercatcher
+  'Picoides arcticus': 'resident',  // Black-backed Woodpecker
+  'Pica hudsonia': 'resident',  // Black-billed Magpie
+  'Baeolophus atricristatus': 'resident',  // Black-crested Titmouse
+  'Polioptila melanura': 'resident',  // Black-tailed Gnatcatcher
+  'Anous ceruleus': 'resident',  // Blue-gray Noddy
+  'Pterodroma hypoleuca': 'resident',  // Bonin Petrel
+  'Poecile hudsonicus': 'resident',  // Boreal Chickadee
+  'Aegolius funereus': 'resident',  // Boreal Owl
+  'Baeolophus wollweberi': 'resident',  // Bridled Titmouse
+  'Sula leucogaster': 'resident',  // Brown Booby
+  'Anous stolidus': 'resident',  // Brown Noddy
+  'Amazilia yucatanensis': 'resident',  // Buff-bellied Hummingbird
+  'Gymnogyps californianus': 'resident',  // California Condor
+  'Polioptila californica': 'resident',  // California Gnatcatcher
+  'Callipepla californica': 'resident',  // California Quail
+  'Toxostoma redivivum': 'resident',  // California Thrasher
+  'Perisoreus canadensis': 'resident',  // Canada Jay
+  'Melozone fusca': 'resident',  // Canyon Towhee
+  'Loxia sinesciuris': 'resident',  // Cassia Crossbill
+  'Ptychoramphus aleuticus': 'resident',  // Cassin's Auklet
+  'Puffinus nativitatis': 'resident',  // Christmas Shearwater
+  'Rallus crepitans': 'resident',  // Clapper Rail
+  'Turdus grayi': 'resident',  // Clay-colored Thrush
+  'Columbina passerina': 'resident',  // Common Ground Dove
+  'Nyctidromus albicollis': 'resident',  // Common Pauraque
+  'Synthliboramphus craveri': 'resident',  // Craveri's Murrelet
+  'Aethia cristatella': 'resident',  // Crested Auklet
+  'Caracara cheriway': 'resident',  // Crested Caracara
+  'Toxostoma crissale': 'resident',  // Crissal Thrasher
+  'Toxostoma curvirostre': 'resident',  // Curve-billed Thrasher
+  'Dendragapus obscurus': 'resident',  // Dusky Grouse
+  'Megascops asio': 'resident',  // Eastern Screech-Owl
+  'Glaucidium brasilianum': 'resident',  // Ferruginous Pygmy-Owl
+  'Aphelocoma coerulescens': 'resident',  // Florida Scrub-Jay
+  'Callipepla gambelii': 'resident',  // Gambel's Quail
+  'Melanerpes uropygialis': 'resident',  // Gila Woodpecker
+  'Colaptes chrysoides': 'resident',  // Gilded Flicker
+  'Melanerpes aurifrons': 'resident',  // Golden-fronted Woodpecker
+  'Poecile cinctus': 'resident',  // Gray-headed Chickadee
+  'Fregata minor': 'resident',  // Great Frigatebird
+  'Strix nebulosa': 'resident',  // Great Gray Owl
+  'Bubo virginianus': 'resident',  // Great Horned Owl
+  'Pitangus sulphuratus': 'resident',  // Great Kiskadee
+  'Tympanuchus cupido': 'resident',  // Greater Prairie-Chicken
+  'Geococcyx californianus': 'resident',  // Greater Roadrunner
+  'Centrocercus urophasianus': 'resident',  // Greater Sage-Grouse
+  'Cyanocorax yncas': 'resident',  // Green Jay
+  'Chloroceryle americana': 'resident',  // Green Kingfisher
+  'Synthliboramphus hypoleucus': 'resident',  // Guadalupe Murrelet
+  'Centrocercus minimus': 'resident',  // Gunnison Sage-Grouse
+  'Parabuteo unicinctus': 'resident',  // Harris's Hawk
+  'Loxops coccineus': 'resident',  // Hawaii Akepa
+  'Chlorodrepanis virens': 'resident',  // Hawaii Amakihi
+  'Loxops mana': 'resident',  // Hawaii Creeper
+  'Chasiempis sandwichensis': 'resident',  // Hawaii Elepaio
+  'Fulica alai': 'resident',  // Hawaiian Coot
+  'Anas wyvilliana': 'resident',  // Hawaiian Duck
+  'Branta sandvicensis': 'resident',  // Hawaiian Goose
+  'Buteo solitarius': 'resident',  // Hawaiian Hawk
+  'Pterodroma sandwichensis': 'resident',  // Hawaiian Petrel
+  'Chondrohierax uncinatus': 'resident',  // Hook-billed Kite
+  'Vireo huttoni': 'resident',  // Hutton's Vireo
+  'Drepanis coccinea': 'resident',  // Iiwi
+  'Columbina inca': 'resident',  // Inca Dove
+  'Aphelocoma insularis': 'resident',  // Island Scrub-Jay
+  'Baeolophus ridgwayi': 'resident',  // Juniper Titmouse
+  'Chlorodrepanis stejnegeri': 'resident',  // Kauai Amakihi
+  'Chasiempis sclateri': 'resident',  // Kauai Elepaio
+  'Brachyramphus brevirostris': 'resident',  // Kittlitz's Murrelet
+  'Myiarchus sagrae': 'resident',  // La Sagra's Flycatcher
+  'Anas laysanensis': 'resident',  // Laysan Duck
+  'Telespiza cantans': 'resident',  // Laysan Finch
+  'Toxostoma lecontei': 'resident',  // LeConte's Thrasher
+  'Aethia pusilla': 'resident',  // Least Auklet
+  'Tachybaptus dominicus': 'resident',  // Least Grebe
+  'Tympanuchus pallidicinctus': 'resident',  // Lesser Prairie-Chicken
+  'Aramus guarauna': 'resident',  // Limpkin
+  'Toxostoma longirostre': 'resident',  // Long-billed Thrasher
+  'Brachyramphus marmoratus': 'resident',  // Marbled Murrelet
+  'Aerodramus bartschi': 'resident',  // Mariana Swiftlet
+  'Sula dactylatra': 'resident',  // Masked Booby
+  'Nomonyx dominicus': 'resident',  // Masked Duck
+  'Paroreomyza montana': 'resident',  // Maui Alauahio
+  'Pseudonestor xanthophrys': 'resident',  // Maui Parrotbill
+  'Poecile sclateri': 'resident',  // Mexican Chickadee
+  'Anas diazi': 'resident',  // Mexican Duck
+  'Aphelocoma wollweberi': 'resident',  // Mexican Jay
+  'Acrocephalus familiaris': 'resident',  // Millerbird
+  'Cyrtonyx montezumae': 'resident',  // Montezuma Quail
+  'Sporophila morelleti': 'resident',  // Morelet's Seedeater
+  'Anas fulvigula': 'resident',  // Mottled Duck
+  'Poecile gambeli': 'resident',  // Mountain Chickadee
+  'Oreortyx pictus': 'resident',  // Mountain Quail
+  'Cairina moschata': 'resident',  // Muscovy Duck
+  'Telespiza ultima': 'resident',  // Nihoa Finch
+  'Camptostoma imberbe': 'resident',  // Northern Beardless-Tyrannulet
+  'Colinus virginianus': 'resident',  // Northern Bobwhite
+  'Surnia ulula': 'resident',  // Northern Hawk Owl
+  'Glaucidium gnoma': 'resident',  // Northern Pygmy-Owl
+  'Chlorodrepanis flava': 'resident',  // Oahu Amakihi
+  'Chasiempis ibidis': 'resident',  // Oahu Elepaio
+  'Arremonops rufivirgatus': 'resident',  // Olive Sparrow
+  'Peucedramus taeniatus': 'resident',  // Olive Warbler
+  'Myadestes obscurus': 'resident',  // Omao
+  'Loxioides bailleui': 'resident',  // Palila
+  'Gymnorhinus cyanocephalus': 'resident',  // Pinyon Jay
+  'Ortalis vetula': 'resident',  // Plain Chachalaca
+  'Myadestes palmeri': 'resident',  // Puaiohi
+  'Sitta pygmaea': 'resident',  // Pygmy Nuthatch
+  'Cardinalis sinuatus': 'resident',  // Pyrrhuloxia
+  'Loxia curvirostra': 'resident',  // Red Crossbill
+  'Patagioenas flavirostris': 'resident',  // Red-billed Pigeon
+  'Dryobates borealis': 'resident',  // Red-cockaded Woodpecker
+  'Urile urile': 'resident',  // Red-faced Cormorant
+  'Sula sula': 'resident',  // Red-footed Booby
+  'Phaethon rubricauda': 'resident',  // Red-tailed Tropicbird
+  'Rallus obsoletus': 'resident',  // Ridgway's Rail
+  'Megaceryle torquata': 'resident',  // Ringed Kingfisher
+  'Lagopus muta': 'resident',  // Rock Ptarmigan
+  'Columbina talpacoti': 'resident',  // Ruddy Ground Dove
+  'Bonasa umbellus': 'resident',  // Ruffed Grouse
+  'Turdus rufopalliatus': 'resident',  // Rufous-backed Robin
+  'Basileuterus rufifrons': 'resident',  // Rufous-capped Warbler
+  'Aimophila ruficeps': 'resident',  // Rufous-crowned Sparrow
+  'Peucaea carpalis': 'resident',  // Rufous-winged Sparrow
+  'Callipepla squamata': 'resident',  // Scaled Quail
+  'Synthliboramphus scrippsi': 'resident',  // Scripps's Murrelet
+  'Ammospiza maritima': 'resident',  // Seaside Sparrow
+  'Tympanuchus phasianellus': 'resident',  // Sharp-tailed Grouse
+  'Crotophaga ani': 'resident',  // Smooth-billed Ani
+  'Rostrhamus sociabilis': 'resident',  // Snail Kite
+  'Dendragapus fuliginosus': 'resident',  // Sooty Grouse
+  'Strix occidentalis': 'resident',  // Spotted Owl
+  'Falcipennis canadensis': 'resident',  // Spruce Grouse
+  'Agelaius tricolor': 'resident',  // Tricolored Blackbird
+  'Leucolia violiceps': 'resident',  // Violet-crowned Hummingbird
+  'Megascops kennicottii': 'resident',  // Western Screech-Owl
+  'Spindalis zena': 'resident',  // Western Spindalis
+  'Aethia pygmaea': 'resident',  // Whiskered Auklet
+  'Megascops trichopsis': 'resident',  // Whiskered Screech-Owl
+  'Gygis alba': 'resident',  // White Tern
+  'Dryobates albolarvatus': 'resident',  // White-headed Woodpecker
+  'Geranoaetus albicaudatus': 'resident',  // White-tailed Hawk
+  'Elanus leucurus': 'resident',  // White-tailed Kite
+  'Lagopus leucura': 'resident',  // White-tailed Ptarmigan
+  'Phaethon lepturus': 'resident',  // White-tailed Tropicbird
+  'Leptotila verreauxi': 'resident',  // White-tipped Dove
+  'Lagopus lagopus': 'resident',  // Willow Ptarmigan
+  'Aphelocoma woodhouseii': 'resident',  // Woodhouse's Scrub-Jay
+  'Pica nuttalli': 'resident',  // Yellow-billed Magpie
+  'Junco phaeonotus': 'resident',  // Yellow-eyed Junco
+  'Anas rubripes': 'partial',  // American Black Duck
+  'Astur atricapillus': 'partial',  // American Goshawk
+  'Haematopus palliatus': 'partial',  // American Oystercatcher
+  'Scolopax minor': 'partial',  // American Woodcock
+  'Synthliboramphus antiquus': 'partial',  // Ancient Murrelet
+  'Hydrobates homochroa': 'partial',  // Ashy Storm-Petrel
+  'Peucaea aestivalis': 'partial',  // Bachman's Sparrow
+  'Patagioenas fasciata': 'partial',  // Band-tailed Pigeon
+  'Toxostoma bendirei': 'partial',  // Bendire's Thrasher
+  'Cepphus grylle': 'partial',  // Black Guillemot
+  'Laterallus jamaicensis': 'partial',  // Black Rail
+  'Leucosticte atrata': 'partial',  // Black Rosy-Finch
+  'Dendrocygna autumnalis': 'partial',  // Black-bellied Whistling-Duck
+  'Polioptila nigriceps': 'partial',  // Black-capped Gnatcatcher
+  'Spizella atrogularis': 'partial',  // Black-chinned Sparrow
+  'Phoebastria nigripes': 'partial',  // Black-footed Albatross
+  'Himantopus mexicanus': 'partial',  // Black-necked Stilt
+  'Puffinus opisthomelas': 'partial',  // Black-vented Shearwater
+  'Lampornis clemenciae': 'partial',  // Blue-throated Mountain-gem
+  'Peucaea botterii': 'partial',  // Botteri's Sparrow
+  'Urile penicillatus': 'partial',  // Brandt's Cormorant
+  'Cynanthus latirostris': 'partial',  // Broad-billed Hummingbird
+  'Molothrus aeneus': 'partial',  // Bronzed Cowbird
+  'Leucosticte australis': 'partial',  // Brown-capped Rosy-Finch
+  'Empidonax fulvifrons': 'partial',  // Buff-breasted Flycatcher
+  'Athene cunicularia': 'partial',  // Burrowing Owl
+  'Haemorhous cassinii': 'partial',  // Cassin's Finch
+  'Peucaea cassinii': 'partial',  // Cassin's Sparrow
+  'Bubulcus ibis': 'partial',  // Cattle Egret
+  'Petrochelidon fulva': 'partial',  // Cave Swallow
+  'Corvus cryptoleucus': 'partial',  // Chihuahuan Raven
+  'Aechmophorus clarkii': 'partial',  // Clark's Grebe
+  'Buteogallus anthracinus': 'partial',  // Common Black Hawk
+  'Somateria mollissima': 'partial',  // Common Eider
+  'Gavia immer': 'partial',  // Common Loon
+  'Mergus merganser': 'partial',  // Common Merganser
+  'Uria aalge': 'partial',  // Common Murre
+  'Phalaenoptilus nuttallii': 'partial',  // Common Poorwill
+  'Tyrannus couchii': 'partial',  // Couch's Kingbird
+  'Myiarchus tuberculifer': 'partial',  // Dusky-capped Flycatcher
+  'Podiceps nigricollis': 'partial',  // Eared Grebe
+  'Trogon elegans': 'partial',  // Elegant Trogon
+  'Coccothraustes vespertinus': 'partial',  // Evening Grosbeak
+  'Buteo regalis': 'partial',  // Ferruginous Hawk
+  'Spizella pusilla': 'partial',  // Field Sparrow
+  'Amphispiza quinquestriata': 'partial',  // Five-striped Sparrow
+  'Piranga bidentata': 'partial',  // Flame-colored Tanager
+  'Hydrobates furcatus': 'partial',  // Fork-tailed Storm-Petrel
+  'Dendrocygna bicolor': 'partial',  // Fulvous Whistling-Duck
+  'Mareca strepera': 'partial',  // Gadwall
+  'Larus glaucescens': 'partial',  // Glaucous-winged Gull
+  'Aquila chrysaetos': 'partial',  // Golden Eagle
+  'Ammodramus savannarum': 'partial',  // Grasshopper Sparrow
+  'Buteo plagiatus': 'partial',  // Gray Hawk
+  'Vireo vicinior': 'partial',  // Gray Vireo
+  'Leucosticte tephrocotis': 'partial',  // Gray-crowned Rosy-Finch
+  'Larus marinus': 'partial',  // Great Black-backed Gull
+  'Phalacrocorax carbo': 'partial',  // Great Cormorant
+  'Butorides virescens': 'partial',  // Green Heron
+  'Crotophaga sulcirostris': 'partial',  // Groove-billed Ani
+  'Falco rusticolus': 'partial',  // Gyrfalcon
+  'Centronyx henslowii': 'partial',  // Henslow's Sparrow
+  'Piranga flava': 'partial',  // Hepatic Tanager
+  'Larus argentatus': 'partial',  // Herring Gull
+  'Icterus cucullatus': 'partial',  // Hooded Oriole
+  'Eremophila alpestris': 'partial',  // Horned Lark
+  'Fratercula corniculata': 'partial',  // Horned Puffin
+  'Troglodytes aedon': 'partial',  // House Wren
+  'Rallus elegans': 'partial',  // King Rail
+  'Chondestes grammacus': 'partial',  // Lark Sparrow
+  'Spinus lawrencei': 'partial',  // Lawrence's Goldfinch
+  'Phoebastria immutabilis': 'partial',  // Laysan Albatross
+  'Melanerpes lewis': 'partial',  // Lewis's Woodpecker
+  'Lanius ludovicianus': 'partial',  // Loggerhead Shrike
+  'Asio otus': 'partial',  // Long-eared Owl
+  'Fregata magnificens': 'partial',  // Magnificent Frigatebird
+  'Coccyzus minor': 'partial',  // Mangrove Cuckoo
+  'Cistothorus palustris': 'partial',  // Marsh Wren
+  'Falco columbarius': 'partial',  // Merlin
+  'Colibri thalassinus': 'partial',  // Mexican Violetear
+  'Sialia currucoides': 'partial',  // Mountain Bluebird
+  'Nannopterum brasilianum': 'partial',  // Neotropic Cormorant
+  'Fulmarus glacialis': 'partial',  // Northern Fulmar
+  'Circus hudsonius': 'partial',  // Northern Harrier
+  'Aegolius acadicus': 'partial',  // Northern Saw-whet Owl
+  'Leiothlypis celata': 'partial',  // Orange-crowned Warbler
+  'Myioborus pictus': 'partial',  // Painted Redstart
+  'Aethia psittacula': 'partial',  // Parakeet Auklet
+  'Phainopepla nitens': 'partial',  // Phainopepla
+  'Cepphus columba': 'partial',  // Pigeon Guillemot
+  'Pinicola enucleator': 'partial',  // Pine Grosbeak
+  'Spinus pinus': 'partial',  // Pine Siskin
+  'Vireo plumbeus': 'partial',  // Plumbeous Vireo
+  'Falco mexicanus': 'partial',  // Prairie Falcon
+  'Porphyrio martinicus': 'partial',  // Purple Gallinule
+  'Alca torda': 'partial',  // Razorbill
+  'Phaethon aethereus': 'partial',  // Red-billed Tropicbird
+  'Sitta canadensis': 'partial',  // Red-breasted Nuthatch
+  'Sphyrapicus ruber': 'partial',  // Red-breasted Sapsucker
+  'Sphyrapicus nuchalis': 'partial',  // Red-naped Sapsucker
+  'Egretta rufescens': 'partial',  // Reddish Egret
+  'Cerorhinca monocerata': 'partial',  // Rhinoceros Auklet
+  'Eugenes fulgens': 'partial',  // Rivoli's Hummingbird
+  'Salpinctes obsoletus': 'partial',  // Rock Wren
+  'Pachyramphus aglaiae': 'partial',  // Rose-throated Becard
+  'Platalea ajaja': 'partial',  // Roseate Spoonbill
+  'Thalasseus maximus': 'partial',  // Royal Tern
+  'Oreoscoptes montanus': 'partial',  // Sage Thrasher
+  'Artemisiospiza nevadensis': 'partial',  // Sagebrush Sparrow
+  'Antigone canadensis': 'partial',  // Sandhill Crane
+  'Passerculus sandwichensis': 'partial',  // Savannah Sparrow
+  'Icterus parisorum': 'partial',  // Scott's Oriole
+  'Cistothorus platensis': 'partial',  // Sedge Wren
+  'Accipiter striatus': 'partial',  // Sharp-shinned Hawk
+  'Molothrus bonariensis': 'partial',  // Shiny Cowbird
+  'Asio flammeus': 'partial',  // Short-eared Owl
+  'Buteo brachyurus': 'partial',  // Short-tailed Hawk
+  'Pipilo maculatus': 'partial',  // Spotted Towhee
+  'Tyrannus crassirostris': 'partial',  // Thick-billed Kingbird
+  'Uria lomvia': 'partial',  // Thick-billed Murre
+  'Myadestes townsendi': 'partial',  // Townsend's Solitaire
+  'Tyrannus melancholicus': 'partial',  // Tropical Kingbird
+  'Setophaga pitiayumi': 'partial',  // Tropical Parula
+  'Cygnus buccinator': 'partial',  // Trumpeter Swan
+  'Fratercula cirrhata': 'partial',  // Tufted Puffin
+  'Passerina versicolor': 'partial',  // Varied Bunting
+  'Rallus limicola': 'partial',  // Virginia Rail
+  'Sialia mexicana': 'partial',  // Western Bluebird
+  'Aechmophorus occidentalis': 'partial',  // Western Grebe
+  'Sturnella neglecta': 'partial',  // Western Meadowlark
+  'Patagioenas leucocephala': 'partial',  // White-crowned Pigeon
+  'Basilinna leucotis': 'partial',  // White-eared Hummingbird
+  'Plegadis chihi': 'partial',  // White-faced Ibis
+  'Loxia leucoptera': 'partial',  // White-winged Crossbill
+  'Zenaida asiatica': 'partial',  // White-winged Dove
+  'Sphyrapicus thyroideus': 'partial',  // Williamson's Sapsucker
+  'Gallinago delicata': 'partial',  // Wilson's Snipe
+  'Troglodytes hiemalis': 'partial',  // Winter Wren
+  'Aix sponsa': 'partial',  // Wood Duck
+  'Mycteria americana': 'partial',  // Wood Stork
+  'Nyctanassa violacea': 'partial',  // Yellow-crowned Night-Heron
+  'Larus livens': 'partial',  // Yellow-footed Gull
+  'Buteo albonotatus': 'partial',  // Zone-tailed Hawk
+  'Empidonax virescens': 'migratory',  // Acadian Flycatcher
+  'Empidonax alnorum': 'migratory',  // Alder Flycatcher
+  'Onychoprion aleuticus': 'migratory',  // Aleutian Tern
+  'Recurvirostra americana': 'migratory',  // American Avocet
+  'Botaurus lentiginosus': 'migratory',  // American Bittern
+  'Pluvialis dominica': 'migratory',  // American Golden-Plover
+  'Anthus rubescens': 'migratory',  // American Pipit
+  'Setophaga ruticilla': 'migratory',  // American Redstart
+  'Spizelloides arborea': 'migratory',  // American Tree Sparrow
+  'Pelecanus erythrorhynchos': 'migratory',  // American White Pelican
+  'Chordeiles gundlachii': 'migratory',  // Antillean Nighthawk
+  'Gavia arctica': 'migratory',  // Arctic Loon
+  'Sterna paradisaea': 'migratory',  // Arctic Tern
+  'Phylloscopus borealis': 'migratory',  // Arctic Warbler
+  'Fratercula arctica': 'migratory',  // Atlantic Puffin
+  'Calidris bairdii': 'migratory',  // Baird's Sandpiper
+  'Centronyx bairdii': 'migratory',  // Baird's Sparrow
+  'Icterus galbula': 'migratory',  // Baltimore Oriole
+  'Hydrobates castro': 'migratory',  // Band-rumped Storm-Petrel
+  'Riparia riparia': 'migratory',  // Bank Swallow
+  'Limosa lapponica': 'migratory',  // Bar-tailed Godwit
+  'Hirundo rustica': 'migratory',  // Barn Swallow
+  'Bucephala islandica': 'migratory',  // Barrow's Goldeneye
+  'Setophaga castanea': 'migratory',  // Bay-breasted Warbler
+  'Vireo bellii': 'migratory',  // Bell's Vireo
+  'Pterodroma cahow': 'migratory',  // Bermuda Petrel
+  'Catharus bicknelli': 'migratory',  // Bicknell's Thrush
+  'Melanitta americana': 'migratory',  // Black Scoter
+  'Hydrobates melania': 'migratory',  // Black Storm-Petrel
+  'Cypseloides niger': 'migratory',  // Black Swift
+  'Chlidonias niger': 'migratory',  // Black Tern
+  'Coccyzus erythropthalmus': 'migratory',  // Black-billed Cuckoo
+  'Pterodroma hasitata': 'migratory',  // Black-capped Petrel
+  'Vireo atricapilla': 'migratory',  // Black-capped Vireo
+  'Archilochus alexandri': 'migratory',  // Black-chinned Hummingbird
+  'Pheucticus melanocephalus': 'migratory',  // Black-headed Grosbeak
+  'Chroicocephalus ridibundus': 'migratory',  // Black-headed Gull
+  'Rissa tridactyla': 'migratory',  // Black-legged Kittiwake
+  'Limosa limosa': 'migratory',  // Black-tailed Godwit
+  'Setophaga nigrescens': 'migratory',  // Black-throated Gray Warbler
+  'Setophaga virens': 'migratory',  // Black-throated Green Warbler
+  'Vireo altiloquus': 'migratory',  // Black-whiskered Vireo
+  'Pterodroma nigripennis': 'migratory',  // Black-winged Petrel
+  'Setophaga fusca': 'migratory',  // Blackburnian Warbler
+  'Setophaga striata': 'migratory',  // Blackpoll Warbler
+  'Passerina caerulea': 'migratory',  // Blue Grosbeak
+  'Vireo solitarius': 'migratory',  // Blue-headed Vireo
+  'Spatula discors': 'migratory',  // Blue-winged Teal
+  'Vermivora cyanoptera': 'migratory',  // Blue-winged Warbler
+  'Cyanecula svecica': 'migratory',  // Bluethroat
+  'Dolichonyx oryzivorus': 'migratory',  // Bobolink
+  'Bombycilla garrulus': 'migratory',  // Bohemian Waxwing
+  'Chroicocephalus philadelphia': 'migratory',  // Bonaparte's Gull
+  'Fringilla montifringilla': 'migratory',  // Brambling
+  'Branta bernicla': 'migratory',  // Brant
+  'Spizella breweri': 'migratory',  // Brewer's Sparrow
+  'Onychoprion anaethetus': 'migratory',  // Bridled Tern
+  'Numenius tahitiensis': 'migratory',  // Bristle-thighed Curlew
+  'Selasphorus platycercus': 'migratory',  // Broad-tailed Hummingbird
+  'Buteo platypterus': 'migratory',  // Broad-winged Hawk
+  'Myiarchus tyrannulus': 'migratory',  // Brown-crested Flycatcher
+  'Calidris subruficollis': 'migratory',  // Buff-breasted Sandpiper
+  'Antrostomus ridgwayi': 'migratory',  // Buff-collared Nightjar
+  'Ardenna bulleri': 'migratory',  // Buller's Shearwater
+  'Icterus bullockii': 'migratory',  // Bullock's Oriole
+  'Bulweria bulwerii': 'migratory',  // Bulwer's Petrel
+  'Branta hutchinsii': 'migratory',  // Cackling Goose
+  'Selasphorus calliope': 'migratory',  // Calliope Hummingbird
+  'Aythya valisineria': 'migratory',  // Canvasback
+  'Hydroprogne caspia': 'migratory',  // Caspian Tern
+  'Vireo cassinii': 'migratory',  // Cassin's Vireo
+  'Setophaga cerulea': 'migratory',  // Cerulean Warbler
+  'Calcarius ornatus': 'migratory',  // Chestnut-collared Longspur
+  'Antrostomus carolinensis': 'migratory',  // Chuck-will's-widow
+  'Spatula cyanoptera': 'migratory',  // Cinnamon Teal
+  'Spizella pallida': 'migratory',  // Clay-colored Sparrow
+  'Leiothlypis crissalis': 'migratory',  // Colima Warbler
+  'Cuculus canorus': 'migratory',  // Common Cuckoo
+  'Tringa nebularia': 'migratory',  // Common Greenshank
+  'Chordeiles minor': 'migratory',  // Common Nighthawk
+  'Aythya ferina': 'migratory',  // Common Pochard
+  'Acanthis flammea': 'migratory',  // Common Redpoll
+  'Charadrius hiaticula': 'migratory',  // Common Ringed Plover
+  'Actitis hypoleucos': 'migratory',  // Common Sandpiper
+  'Gallinago gallinago': 'migratory',  // Common Snipe
+  'Sterna hirundo': 'migratory',  // Common Tern
+  'Oporornis agilis': 'migratory',  // Connecticut Warbler
+  'Pterodroma cookii': 'migratory',  // Cook's Petrel
+  'Empidonax occidentalis': 'migratory',  // Cordilleran Flycatcher
+  'Calonectris diomedea': 'migratory',  // Cory's Shearwater
+  'Calidris ferruginea': 'migratory',  // Curlew Sandpiper
+  'Spiza americana': 'migratory',  // Dickcissel
+  'Alle alle': 'migratory',  // Dovekie
+  'Calidris alpina': 'migratory',  // Dunlin
+  'Empidonax oberholseri': 'migratory',  // Dusky Flycatcher
+  'Antrostomus vociferus': 'migratory',  // Eastern Whip-poor-will
+  'Contopus virens': 'migratory',  // Eastern Wood-Pewee
+  'Motacilla tschutschensis': 'migratory',  // Eastern Yellow Wagtail
+  'Micrathene whitneyi': 'migratory',  // Elf Owl
+  'Anser canagicus': 'migratory',  // Emperor Goose
+  'Mareca penelope': 'migratory',  // Eurasian Wigeon
+  'Turdus obscurus': 'migratory',  // Eyebrowed Thrush
+  'Pterodroma feae': 'migratory',  // Fea's Petrel
+  'Psiloscops flammeolus': 'migratory',  // Flammulated Owl
+  'Ardenna carneipes': 'migratory',  // Flesh-footed Shearwater
+  'Tyrannus savana': 'migratory',  // Fork-tailed Flycatcher
+  'Passerella iliaca': 'migratory',  // Fox Sparrow
+  'Leucophaeus pipixcan': 'migratory',  // Franklin's Gull
+  'Larus hyperboreus': 'migratory',  // Glaucous Gull
+  'Setophaga chrysoparia': 'migratory',  // Golden-cheeked Warbler
+  'Zonotrichia atricapilla': 'migratory',  // Golden-crowned Sparrow
+  'Vermivora chrysoptera': 'migratory',  // Golden-winged Warbler
+  'Setophaga graciae': 'migratory',  // Grace's Warbler
+  'Empidonax wrightii': 'migratory',  // Gray Flycatcher
+  'Tyrannus dominicensis': 'migratory',  // Gray Kingbird
+  'Onychoprion lunatus': 'migratory',  // Gray-backed Tern
+  'Catharus minimus': 'migratory',  // Gray-cheeked Thrush
+  'Tringa brevipes': 'migratory',  // Gray-tailed Tattler
+  'Ardenna gravis': 'migratory',  // Great Shearwater
+  'Stercorarius skua': 'migratory',  // Great Skua
+  'Contopus pertinax': 'migratory',  // Greater Pewee
+  'Aythya marila': 'migratory',  // Greater Scaup
+  'Anser albifrons': 'migratory',  // Greater White-fronted Goose
+  'Tringa melanoleuca': 'migratory',  // Greater Yellowlegs
+  'Pipilo chlorurus': 'migratory',  // Green-tailed Towhee
+  'Anas crecca': 'migratory',  // Green-winged Teal
+  'Gelochelidon nilotica': 'migratory',  // Gull-billed Tern
+  'Empidonax hammondii': 'migratory',  // Hammond's Flycatcher
+  'Histrionicus histrionicus': 'migratory',  // Harlequin Duck
+  'Zonotrichia querula': 'migratory',  // Harris's Sparrow
+  'Setophaga occidentalis': 'migratory',  // Hermit Warbler
+  'Acanthis hornemanni': 'migratory',  // Hoary Redpoll
+  'Podiceps auritus': 'migratory',  // Horned Grebe
+  'Limosa haemastica': 'migratory',  // Hudsonian Godwit
+  'Larus glaucoides': 'migratory',  // Iceland Gull
+  'Pagophila eburnea': 'migratory',  // Ivory Gull
+  'Pterodroma externa': 'migratory',  // Juan Fernandez Petrel
+  'Geothlypis formosa': 'migratory',  // Kentucky Warbler
+  'Somateria spectabilis': 'migratory',  // King Eider
+  'Setophaga kirtlandii': 'migratory',  // Kirtland's Warbler
+  'Calcarius lapponicus': 'migratory',  // Lapland Longspur
+  'Calamospiza melanocorys': 'migratory',  // Lark Bunting
+  'Passerina amoena': 'migratory',  // Lazuli Bunting
+  'Ammospiza leconteii': 'migratory',  // LeConte's Sparrow
+  'Hydrobates leucorhous': 'migratory',  // Leach's Storm-Petrel
+  'Ixobrychus exilis': 'migratory',  // Least Bittern
+  'Hydrobates microsoma': 'migratory',  // Least Storm-Petrel
+  'Sternula antillarum': 'migratory',  // Least Tern
+  'Larus fuscus': 'migratory',  // Lesser Black-backed Gull
+  'Chordeiles acutipennis': 'migratory',  // Lesser Nighthawk
+  'Anarhynchus mongolus': 'migratory',  // Lesser Sand-Plover
+  'Aythya affinis': 'migratory',  // Lesser Scaup
+  'Tringa flavipes': 'migratory',  // Lesser Yellowlegs
+  'Melospiza lincolnii': 'migratory',  // Lincoln's Sparrow
+  'Hydrocoloeus minutus': 'migratory',  // Little Gull
+  'Limnodromus scolopaceus': 'migratory',  // Long-billed Dowitcher
+  'Brachyramphus perdix': 'migratory',  // Long-billed Murrelet
+  'Clangula hyemalis': 'migratory',  // Long-tailed Duck
+  'Stercorarius longicaudus': 'migratory',  // Long-tailed Jaeger
+  'Calidris subminuta': 'migratory',  // Long-toed Stint
+  'Parkesia motacilla': 'migratory',  // Louisiana Waterthrush
+  'Calothorax lucifer': 'migratory',  // Lucifer Hummingbird
+  'Leiothlypis luciae': 'migratory',  // Lucy's Warbler
+  'Geothlypis tolmiei': 'migratory',  // MacGillivray's Warbler
+  'Setophaga magnolia': 'migratory',  // Magnolia Warbler
+  'Puffinus puffinus': 'migratory',  // Manx Shearwater
+  'Plectrophenax hyperboreus': 'migratory',  // McKay's Bunting
+  'Antrostomus arizonae': 'migratory',  // Mexican Whip-poor-will
+  'Ictinia mississippiensis': 'migratory',  // Mississippi Kite
+  'Pterodroma inexpectata': 'migratory',  // Mottled Petrel
+  'Anarhynchus montanus': 'migratory',  // Mountain Plover
+  'Geothlypis philadelphia': 'migratory',  // Mourning Warbler
+  'Pterodroma ultima': 'migratory',  // Murphy's Petrel
+  'Leiothlypis ruficapilla': 'migratory',  // Nashville Warbler
+  'Ammospiza nelsoni': 'migratory',  // Nelson's Sparrow
+  'Puffinus newelli': 'migratory',  // Newell's Shearwater
+  'Morus bassanus': 'migratory',  // Northern Gannet
+  'Anas acuta': 'migratory',  // Northern Pintail
+  'Stelgidopteryx serripennis': 'migratory',  // Northern Rough-winged Swallow
+  'Spatula clypeata': 'migratory',  // Northern Shoveler
+  'Lanius borealis': 'migratory',  // Northern Shrike
+  'Parkesia noveboracensis': 'migratory',  // Northern Waterthrush
+  'Oenanthe oenanthe': 'migratory',  // Northern Wheatear
+  'Anthus hodgsoni': 'migratory',  // Olive-backed Pipit
+  'Contopus cooperi': 'migratory',  // Olive-sided Flycatcher
+  'Icterus spurius': 'migratory',  // Orchard Oriole
+  'Seiurus aurocapilla': 'migratory',  // Ovenbird
+  'Pluvialis fulva': 'migratory',  // Pacific Golden-Plover
+  'Gavia pacifica': 'migratory',  // Pacific Loon
+  'Empidonax difficilis': 'migratory',  // Pacific-slope Flycatcher
+  'Stercorarius parasiticus': 'migratory',  // Parasitic Jaeger
+  'Calidris melanotos': 'migratory',  // Pectoral Sandpiper
+  'Vireo philadelphicus': 'migratory',  // Philadelphia Vireo
+  'Ardenna creatopus': 'migratory',  // Pink-footed Shearwater
+  'Stercorarius pomarinus': 'migratory',  // Pomarine Jaeger
+  'Setophaga discolor': 'migratory',  // Prairie Warbler
+  'Progne subis': 'migratory',  // Purple Martin
+  'Calidris maritima': 'migratory',  // Purple Sandpiper
+  'Calidris canutus': 'migratory',  // Red Knot
+  'Phalaropus fulicarius': 'migratory',  // Red Phalarope
+  'Vireo olivaceus': 'migratory',  // Red-eyed Vireo
+  'Cardellina rubrifrons': 'migratory',  // Red-faced Warbler
+  'Rissa brevirostris': 'migratory',  // Red-legged Kittiwake
+  'Podiceps grisegena': 'migratory',  // Red-necked Grebe
+  'Phalaropus lobatus': 'migratory',  // Red-necked Phalarope
+  'Calidris ruficollis': 'migratory',  // Red-necked Stint
+  'Gavia stellata': 'migratory',  // Red-throated Loon
+  'Anthus cervinus': 'migratory',  // Red-throated Pipit
+  'Aythya americana': 'migratory',  // Redhead
+  'Aythya collaris': 'migratory',  // Ring-necked Duck
+  'Calidris ptilocnemis': 'migratory',  // Rock Sandpiper
+  'Pheucticus ludovicianus': 'migratory',  // Rose-breasted Grosbeak
+  'Sterna dougallii': 'migratory',  // Roseate Tern
+  'Anser rossii': 'migratory',  // Ross's Goose
+  'Rhodostethia rosea': 'migratory',  // Ross's Gull
+  'Buteo lagopus': 'migratory',  // Rough-legged Hawk
+  'Archilochus colubris': 'migratory',  // Ruby-throated Hummingbird
+  'Calidris pugnax': 'migratory',  // Ruff
+  'Emberiza rustica': 'migratory',  // Rustic Bunting
+  'Euphagus carolinus': 'migratory',  // Rusty Blackbird
+  'Xema sabini': 'migratory',  // Sabine's Gull
+  'Ammospiza caudacuta': 'migratory',  // Saltmarsh Sparrow
+  'Thalasseus sandvicensis': 'migratory',  // Sandwich Tern
+  'Piranga olivacea': 'migratory',  // Scarlet Tanager
+  'Tyrannus forficatus': 'migratory',  // Scissor-tailed Flycatcher
+  'Calidris acuminata': 'migratory',  // Sharp-tailed Sandpiper
+  'Larus brachyrhynchus': 'migratory',  // Short-billed Gull
+  'Phoebastria albatrus': 'migratory',  // Short-tailed Albatross
+  'Ardenna tenuirostris': 'migratory',  // Short-tailed Shearwater
+  'Calliope calliope': 'migratory',  // Siberian Rubythroat
+  'Larus schistisagus': 'migratory',  // Slaty-backed Gull
+  'Mergellus albellus': 'migratory',  // Smew
+  'Calcarius pictus': 'migratory',  // Smith's Longspur
+  'Plectrophenax nivalis': 'migratory',  // Snow Bunting
+  'Anser caerulescens': 'migratory',  // Snow Goose
+  'Bubo scandiacus': 'migratory',  // Snowy Owl
+  'Tringa solitaria': 'migratory',  // Solitary Sandpiper
+  'Ardenna grisea': 'migratory',  // Sooty Shearwater
+  'Onychoprion fuscatus': 'migratory',  // Sooty Tern
+  'Porzana carolina': 'migratory',  // Sora
+  'Stercorarius maccormicki': 'migratory',  // South Polar Skua
+  'Somateria fischeri': 'migratory',  // Spectacled Eider
+  'Actitis macularius': 'migratory',  // Spotted Sandpiper
+  'Anthus spragueii': 'migratory',  // Sprague's Pipit
+  'Polysticta stelleri': 'migratory',  // Steller's Eider
+  'Calidris himantopus': 'migratory',  // Stilt Sandpiper
+  'Myiodynastes luteiventris': 'migratory',  // Sulphur-bellied Flycatcher
+  'Melanitta perspicillata': 'migratory',  // Surf Scoter
+  'Calidris virgata': 'migratory',  // Surfbird
+  'Buteo swainsoni': 'migratory',  // Swainson's Hawk
+  'Catharus ustulatus': 'migratory',  // Swainson's Thrush
+  'Limnothlypis swainsonii': 'migratory',  // Swainson's Warbler
+  'Anser fabalis': 'migratory',  // Taiga Bean-Goose
+  'Calidris temminckii': 'migratory',  // Temminck's Stint
+  'Leiothlypis peregrina': 'migratory',  // Tennessee Warbler
+  'Xenus cinereus': 'migratory',  // Terek Sandpiper
+  'Rhynchophanes mccownii': 'migratory',  // Thick-billed Longspur
+  'Hydrobates socorroensis': 'migratory',  // Townsend's Storm-Petrel
+  'Setophaga townsendi': 'migratory',  // Townsend's Warbler
+  'Tachycineta bicolor': 'migratory',  // Tree Swallow
+  'Pterodroma arminjoniana': 'migratory',  // Trindade Petrel
+  'Hydrobates tristrami': 'migratory',  // Tristram's Storm-Petrel
+  'Aythya fuligula': 'migratory',  // Tufted Duck
+  'Anser serrirostris': 'migratory',  // Tundra Bean-Goose
+  'Cygnus columbianus': 'migratory',  // Tundra Swan
+  'Bartramia longicauda': 'migratory',  // Upland Sandpiper
+  'Chaetura vauxi': 'migratory',  // Vaux's Swift
+  'Catharus fuscescens': 'migratory',  // Veery
+  'Pooecetes gramineus': 'migratory',  // Vesper Sparrow
+  'Tachycineta thalassina': 'migratory',  // Violet-green Swallow
+  'Leiothlypis virginiae': 'migratory',  // Virginia's Warbler
+  'Tringa incana': 'migratory',  // Wandering Tattler
+  'Vireo gilvus': 'migratory',  // Warbling Vireo
+  'Ardenna pacifica': 'migratory',  // Wedge-tailed Shearwater
+  'Tyrannus verticalis': 'migratory',  // Western Kingbird
+  'Calidris mauri': 'migratory',  // Western Sandpiper
+  'Piranga ludoviciana': 'migratory',  // Western Tanager
+  'Contopus sordidulus': 'migratory',  // Western Wood-Pewee
+  'Numenius phaeopus': 'migratory',  // Whimbrel
+  'Motacilla alba': 'migratory',  // White Wagtail
+  'Zonotrichia leucophrys': 'migratory',  // White-crowned Sparrow
+  'Pelagodroma marina': 'migratory',  // White-faced Storm-Petrel
+  'Pterodroma cervicalis': 'migratory',  // White-necked Petrel
+  'Calidris fuscicollis': 'migratory',  // White-rumped Sandpiper
+  'Melanitta deglandi': 'migratory',  // White-winged Scoter
+  'Cygnus cygnus': 'migratory',  // Whooper Swan
+  'Grus americana': 'migratory',  // Whooping Crane
+  'Empidonax traillii': 'migratory',  // Willow Flycatcher
+  'Phalaropus tricolor': 'migratory',  // Wilson's Phalarope
+  'Oceanites oceanicus': 'migratory',  // Wilson's Storm-Petrel
+  'Cardellina pusilla': 'migratory',  // Wilson's Warbler
+  'Tringa glareola': 'migratory',  // Wood Sandpiper
+  'Helmitheros vermivorum': 'migratory',  // Worm-eating Warbler
+  'Coturnicops noveboracensis': 'migratory',  // Yellow Rail
+  'Setophaga petechia': 'migratory',  // Yellow Warbler
+  'Empidonax flaviventris': 'migratory',  // Yellow-bellied Flycatcher
+  'Coccyzus americanus': 'migratory',  // Yellow-billed Cuckoo
+  'Gavia adamsii': 'migratory',  // Yellow-billed Loon
+  'Icteria virens': 'migratory',  // Yellow-breasted Chat
+  'Vireo flavoviridis': 'migratory',  // Yellow-green Vireo
+  'Xanthocephalus xanthocephalus': 'migratory',  // Yellow-headed Blackbird
+  'Vireo flavifrons': 'migratory',  // Yellow-throated Vireo
 };
 const SPECIES_RANGE = {
   // e.g. 'Setophaga cerulea': ['se','mw','ne'],
