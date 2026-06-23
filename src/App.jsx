@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Papa from 'papaparse';
-import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon, ChevronLeft, ChevronRight, Share2, Plus, Download, ArrowLeftRight, Home, Lightbulb, MapPin, Calendar, Eye, Anchor } from 'lucide-react';
+import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon, ChevronLeft, ChevronRight, Share2, Plus, Download, ArrowLeftRight, Home, Lightbulb, MapPin, Calendar, Eye, Anchor, Moon } from 'lucide-react';
 import { storage } from './lib/storage.js';
 import { BluebirdMascot, Cardinal, Cloud, Sparkle, Compass, TreeIcon, HeartIcon, EyeIcon, CalendarIcon, ChecklistIcon, CURRENT_MASCOT } from './Illustrations.jsx';
 import { geoAlbersUsa, geoAlbers, geoPath, geoContains, geoCentroid } from 'd3-geo';
@@ -1126,6 +1126,56 @@ const PELAGIC_GENERA = new Set([
   'Oceanites', 'Pelagodroma', 'Hydrobates', // storm-petrels
 ]);
 const isPelagicSci = (sci) => !!sci && PELAGIC_GENERA.has(sci.split(' ')[0]);
+
+// NOCTURNAL: owls (Strigidae, Tytonidae) + nightjars (Caprimulgidae). The tag
+// signals "you'll look/listen for this at night or dusk" — a different search
+// approach. A few (Snowy, Northern Hawk, Burrowing, Short-eared) also hunt by
+// day, but they're still owls the birder approaches as night/dusk targets.
+const NOCTURNAL_GENERA = new Set([
+  'Tyto', 'Psiloscops', 'Megascops', 'Bubo', 'Surnia', 'Glaucidium',
+  'Micrathene', 'Athene', 'Strix', 'Asio', 'Aegolius',           // owls
+  'Chordeiles', 'Nyctidromus', 'Phalaenoptilus', 'Antrostomus',  // nightjars
+]);
+const isNocturnalSci = (sci) => !!sci && NOCTURNAL_GENERA.has(sci.split(' ')[0]);
+
+// SPECIALIZED ("!"): genuinely range-restricted US specialties — birds a
+// birder makes a dedicated trip for, confined to a small area (a single
+// mountain range, the SE Arizona canyons, the South Texas / Florida tip, a
+// lone island). This is a CURATED set (a judgment about which birds are true
+// "specialties"), not a pure data rule — a single-region range alone doesn't
+// qualify (e.g. common Alaskan or Hawaiian residents are not specialties).
+// Keyed by scientific name. Add/remove here to tune.
+const SPECIALIZED_SCI = new Set([
+  // Florida / SE micro-range
+  'Aphelocoma coerulescens', 'Rostrhamus sociabilis', 'Aramus guarauna',
+  'Buteo brachyurus', 'Patagioenas leucocephala', 'Dryobates borealis',
+  // California restricted
+  'Aphelocoma insularis', 'Polioptila californica', 'Pica nuttalli',
+  'Chamaea fasciata', 'Gymnogyps californianus', 'Agelaius tricolor',
+  'Toxostoma redivivum',
+  // SE Arizona / Southwest border specialties
+  'Trogon elegans', 'Eugenes fulgens', 'Lampornis clemenciae',
+  'Cynanthus latirostris', 'Basilinna leucotis', 'Leucolia violiceps',
+  'Saucerottia beryllina', 'Pachyramphus aglaiae', 'Camptostoma imberbe',
+  'Myiodynastes luteiventris', 'Myiarchus tuberculifer', 'Tyrannus crassirostris',
+  'Megascops trichopsis', 'Glaucidium brasilianum', 'Micrathene whitneyi',
+  'Cardellina rubrifrons', 'Myioborus pictus', 'Basileuterus rufifrons',
+  'Peucedramus taeniatus', 'Aimophila ruficeps', 'Amphispiza quinquestriata',
+  'Peucaea carpalis', 'Aphelocoma wollweberi', 'Poecile sclateri',
+  'Baeolophus wollweberi', 'Auriparus flaviceps', 'Toxostoma crissale',
+  'Toxostoma lecontei', 'Spizella atrogularis', 'Vireo vicinior',
+  // South Texas specialties
+  'Pitangus sulphuratus', 'Icterus gularis', 'Icterus graduacauda',
+  'Leptotila verreauxi', 'Ortalis vetula', 'Geranoaetus albicaudatus',
+  'Buteogallus anthracinus', 'Caracara cheriway', 'Falco femoralis',
+  'Sporophila morelleti', 'Spindalis zena', 'Setophaga pitiayumi',
+  'Arremonops rufivirgatus', 'Cyanocorax yncas',
+  // Range-restricted breeders / endangered specialties
+  'Setophaga kirtlandii', 'Setophaga chrysoparia', 'Vireo atricapilla',
+  'Centrocercus minimus', 'Tympanuchus pallidicinctus', 'Loxia sinesciuris',
+  'Leucosticte atrata', 'Leucosticte australis',
+]);
+const isSpecializedSci = (sci) => !!sci && SPECIALIZED_SCI.has(sci);
 
 // ----------------------------------------------------------------------------
 // Per-species reference data for the detail card. These are STUBS to be filled
@@ -4439,6 +4489,8 @@ function SpeciesDetailCard({ species, seenSci, speciesStats, onClose }) {
   const iucn = IUCN_STATUS[sci]; // undefined → Least Concern
   const code3 = CODE_3_SCI.has(sci);
   const pelagic = isPelagicSci(sci);
+  const nocturnal = isNocturnalSci(sci);
+  const specialized = isSpecializedSci(sci);
   const movement = SPECIES_MOVEMENT[sci]; // undefined → coming soon
   const trueRange = SPECIES_RANGE[sci];   // undefined → coming soon
   const fact = SPECIES_FACTS[sci];        // undefined → coming soon
@@ -4504,6 +4556,16 @@ function SpeciesDetailCard({ species, seenSci, speciesStats, onClose }) {
               {pelagic && (
                 <span style={{ fontSize: 10, fontWeight: 600, color: '#0d3b54', background: '#bfe0ef', border: '1.5px solid #2a3445', borderRadius: 999, padding: '1px 8px', letterSpacing: '0.03em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Anchor size={10} strokeWidth={2.5} /> PELAGIC
+                </span>
+              )}
+              {nocturnal && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#2e2358', background: '#d6cdf0', border: '1.5px solid #2a3445', borderRadius: 999, padding: '1px 8px', letterSpacing: '0.03em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Moon size={10} strokeWidth={2.5} /> NOCTURNAL
+                </span>
+              )}
+              {specialized && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#7a2e1a', background: '#f3c9b3', border: '1.5px solid #2a3445', borderRadius: 999, padding: '1px 8px', letterSpacing: '0.03em', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ fontWeight: 800 }}>!</span> SPECIALIZED
                 </span>
               )}
             </div>
