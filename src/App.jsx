@@ -1197,6 +1197,7 @@ const isSpecializedSci = (sci) => !!sci && SPECIALIZED_SCI.has(sci);
 // ----------------------------------------------------------------------------
 const LOWER_48_REGION_IDS = ['pnw', 'cal', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se']; // excludes ak, hi
 const ALL_REGION_IDS = ['pnw', 'cal', 'ak', 'hi', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'];
+const FOWL_PLAY_THRESHOLD = 10; // distinct US non-native species for the Fowl Play badge
 
 const BADGE_GROUPS = [
   {
@@ -1264,6 +1265,7 @@ const BADGE_GROUPS = [
       { key: 'pelagic',     name: 'Sea Legs',            desc: 'See your first pelagic species' },
       { key: 'nocturnal',   name: 'Night Owl',           desc: 'See your first nocturnal species' },
       { key: 'specialized', name: 'Off the Beaten Path', desc: 'See your first specialized species' },
+      { key: 'fowlplay',    name: 'Fowl Play',           desc: '10 non-native species in the US' },
     ],
   },
 ];
@@ -3010,6 +3012,9 @@ function parseEBirdCsv(file) {
           // the 2021 cormorant split (Phalacrocorax → Urile / Nannopterum).
           // Surfacing the list lets the user (and me) spot these.
           const unrecognized = new Map(); // sci → { sci, com, count }
+          // Distinct non-native species recorded within the US (vagrants,
+          // escapees, established exotics). Powers the "Fowl Play" badge.
+          const usNonNativeSci = new Set();
           let earliest = null, latest = null;
           let totalObservations = 0;
 
@@ -3023,6 +3028,13 @@ function parseEBirdCsv(file) {
             // "US-NC" → "NC" → "se". Cheap & only runs once per row.
             const stateAbbr = (r[stateKey] || '').slice(3);
             const regionId = STATE_TO_REGION[stateAbbr] || null;
+            // Is this observation from a checklist submitted in the US? eBird
+            // prefixes State/Province with the ISO country code, so anything
+            // starting "US-" (including US territories) counts; "CR-A" (Costa
+            // Rica) etc. does not. Used for the "Fowl Play" badge, which counts
+            // distinct NON-native species recorded specifically within the US
+            // (vagrants, escapees, established exotics) — not vacation birds.
+            const isUsObservation = (r[stateKey] || '').startsWith('US-');
             // eBird CSVs export subspecies-level reports as TRINOMIALS, e.g.
             // "Dryobates villosus septentrionalis" for Eastern Hairy Woodpecker.
             // Those won't match a binomial NATIVE_SCI entry. Strip to first two
@@ -3059,6 +3071,9 @@ function parseEBirdCsv(file) {
                 let entry = unrecognized.get(sci);
                 if (!entry) { entry = { sci, com: com || '', count: 0 }; unrecognized.set(sci, entry); }
                 entry.count++;
+                // If this non-native was seen on a US checklist, record the
+                // (binomial) species for the Fowl Play badge.
+                if (isUsObservation) usNonNativeSci.add(speciesKey);
               }
               const lat = parseFloat(r[latKey]);
               const lng = parseFloat(r[lngKey]);
@@ -3172,6 +3187,9 @@ function parseEBirdCsv(file) {
               locationCount: points.length,
               ebirdLocations: locationsArr.length,
               firstSightingLocations: firstSightingPoints.length,
+              // Count of distinct NON-native species recorded on US checklists
+              // (vagrants/escapees/exotics seen in the US) — for Fowl Play.
+              usNonNativeCount: usNonNativeSci.size,
               // { 'pnw': 87, 'cal': 134, ... } — native species count per region
               regionNativeCount: Object.fromEntries(
                 Array.from(speciesByRegion, ([id, set]) => [id, set.size])
@@ -4377,6 +4395,7 @@ export default function BirdLifeTracker() {
           atRiskSeen={atRiskSeen}
           regionNativeCount={csvMeta?.regionNativeCount || {}}
           speciesStats={csvMeta?.speciesStats || {}}
+          usNonNativeCount={csvMeta?.usNonNativeCount || 0}
           onBack={() => setView('dashboard')}
         />
       )}
@@ -6126,7 +6145,7 @@ function BadgeIcon({ name, size = 22, color }) {
   return <Trophy {...props} />;
 }
 
-function BadgesView({ seenSci, userCount, atRiskSeen, regionNativeCount, speciesStats, onBack }) {
+function BadgesView({ seenSci, userCount, atRiskSeen, regionNativeCount, speciesStats, usNonNativeCount, onBack }) {
   const [selected, setSelected] = useState(null); // { group, tier, unlocked, earnedDate }
 
   // Assemble the stats the badge selectors read.
@@ -6158,9 +6177,13 @@ function BadgesView({ seenSci, userCount, atRiskSeen, regionNativeCount, species
       alaskaDone,
       coastToCoastDone,
       threatenedCount: atRiskSeen || 0,
-      traits: { pelagic, nocturnal, specialized },
+      usNonNativeCount: usNonNativeCount || 0,
+      traits: {
+        pelagic, nocturnal, specialized,
+        fowlplay: (usNonNativeCount || 0) >= FOWL_PLAY_THRESHOLD,
+      },
     };
-  }, [seenSci, userCount, atRiskSeen, regionNativeCount]);
+  }, [seenSci, userCount, atRiskSeen, regionNativeCount, usNonNativeCount]);
 
   // Pre-sort the user's first-seen dates so we can derive WHEN a count-based
   // threshold was crossed: the Nth earliest first-seen date is the day the Nth
@@ -6378,7 +6401,12 @@ function BadgeDetailPopup({ group, tier, unlocked, earned, stats, onClose }) {
 
   // "How to earn / how earned" explanation per group.
   let howText;
-  if (isTrait) {
+  if (isTrait && tier.key === 'fowlplay') {
+    const n = stats.usNonNativeCount || 0;
+    howText = unlocked
+      ? `Unlocked by recording ${FOWL_PLAY_THRESHOLD} non-native species (vagrants, escapees, and exotics) on checklists submitted within the US.`
+      : `Record ${FOWL_PLAY_THRESHOLD} non-native species on US checklists — vagrants, escapees, and exotics, not birds seen abroad. You're at ${n} of ${FOWL_PLAY_THRESHOLD}.`;
+  } else if (isTrait) {
     const traitName = { pelagic: 'pelagic (open-ocean)', nocturnal: 'nocturnal', specialized: 'specialized / range-restricted' }[tier.key] || tier.key;
     howText = unlocked
       ? `Unlocked by observing your first ${traitName} species.`
