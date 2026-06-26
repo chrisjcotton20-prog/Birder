@@ -4155,18 +4155,6 @@ export default function BirdLifeTracker() {
                 Browse-all moved up under the hero. This row now holds only
                 the eBird-API-powered "find missed birds" affordance (and any
                 future tools we add). */}
-            <div className="anim-5 flex flex-wrap items-center gap-2">
-              {userCount != null && (
-                <button
-                  onClick={() => setShowTips(true)}
-                  className="btn-ghost rounded-full px-4 py-2 text-sm inline-flex items-center gap-2"
-                >
-                  <Search size={14} strokeWidth={2.5} />
-                  Find missed birds
-                </button>
-              )}
-            </div>
-
             {/* ===== Map CTA — chunky green pill (the big "go explore" button) ===== */}
             {points && points.length > 0 && (
               <button
@@ -4263,6 +4251,20 @@ export default function BirdLifeTracker() {
                 </div>
               </button>
             )}
+
+            {/* Find missed birds — moved below the Map & Badges CTAs (so those
+                two are the prominent actions) and centered. */}
+            <div className="anim-5 flex justify-center">
+              {userCount != null && (
+                <button
+                  onClick={() => setShowTips(true)}
+                  className="btn-ghost rounded-full px-4 py-2 text-sm inline-flex items-center gap-2"
+                >
+                  <Search size={14} strokeWidth={2.5} />
+                  Find missed birds
+                </button>
+              )}
+            </div>
 
             </div>
             {/* below-the-fold supplementary content: excluded-species note +
