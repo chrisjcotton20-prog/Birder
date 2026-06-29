@@ -1227,10 +1227,12 @@ const BADGE_GROUPS = [
     accent: '#6cb8e4',
     value: (s) => s.regionCount,
     tiers: [
-      { threshold: 2,  name: 'Wanderer',          desc: '2 regions' },
-      { threshold: 5,  name: 'Roamer',            desc: '5 regions' },
-      { threshold: 9,  name: 'Lower 48',          desc: 'All 9 lower-48 regions', custom: 'lower48' },
-      { threshold: 11, name: 'American Adventurer', desc: 'All 11 regions (incl. AK & HI)' },
+      { threshold: 2,  name: 'Wanderer',     desc: '2 regions' },
+      { threshold: 4,  name: 'Roamer',       desc: '4 regions' },
+      { threshold: 6,  name: 'Adventurer',   desc: '6 regions' },
+      { threshold: 8,  name: 'Jetsetter',    desc: '8 regions' },
+      { threshold: 9,  name: 'Lower 48',     desc: 'All 9 lower-48 regions', custom: 'lower48' },
+      { threshold: 11, name: 'Globetrotter', desc: 'All 11 regions (incl. AK & HI)' },
       { name: 'Coast to Coast',     desc: 'An East & a West coast region', custom: 'coast' },
       { name: 'Island Hopper',      desc: 'Visit Hawaii',         custom: 'hawaii' },
       { name: 'Polar Express',      desc: 'Visit Alaska',         custom: 'alaska' },
@@ -1244,13 +1246,11 @@ const BADGE_GROUPS = [
     accent: '#c9a01a',
     value: (s) => s.threatenedCount,
     tiers: [
-      { threshold: 1,  name: 'First Watch',   desc: 'First threatened species' },
-      { threshold: 10, name: 'Sentinel',      desc: '10 threatened species' },
-      { threshold: 20, name: 'Protector',     desc: '20 threatened species' },
-      { threshold: 30, name: 'Conservator',   desc: '30 threatened species' },
-      { threshold: 40, name: 'Steward',       desc: '40 threatened species' },
-      { threshold: 50, name: 'Custodian',     desc: '50 threatened species' },
-      { threshold: 61, name: 'Last Stand',    desc: 'All 61 at-risk species' },
+      { threshold: 1,  name: 'First Watch',     desc: 'First threatened species' },
+      { threshold: 15, name: 'Protector',       desc: '15 threatened species' },
+      { threshold: 30, name: 'Steward',         desc: '30 threatened species' },
+      { threshold: 45, name: 'Conservationist', desc: '45 threatened species' },
+      { threshold: 61, name: 'Last Stand',      desc: 'All 61 at-risk species' },
     ],
   },
   {
@@ -2964,6 +2964,7 @@ function parseEBirdCsv(file) {
           const sciKey = ['Scientific Name'].find(k => k in sample) || 'Scientific Name';
           const comKey = ['Common Name'].find(k => k in sample) || 'Common Name';
           const dateKey = ['Date'].find(k => k in sample) || 'Date';
+          const submissionKey = ['Submission ID', 'Submission Id', 'submission_id'].find(k => k in sample) || 'Submission ID';
           const latKey = ['Latitude'].find(k => k in sample) || 'Latitude';
           const lngKey = ['Longitude'].find(k => k in sample) || 'Longitude';
           const locIdKey = ['Location ID'].find(k => k in sample) || 'Location ID';
@@ -3015,11 +3016,16 @@ function parseEBirdCsv(file) {
           // Distinct non-native species recorded within the US (vagrants,
           // escapees, established exotics). Powers the "Fowl Play" badge.
           const usNonNativeSci = new Set();
+          // Distinct eBird checklists (Submission IDs) — a more meaningful
+          // activity metric than raw observation rows, which can double-count.
+          const checklistIds = new Set();
           let earliest = null, latest = null;
           let totalObservations = 0;
 
           for (const r of usRows) {
             totalObservations++;
+            const subId = r[submissionKey];
+            if (subId) checklistIds.add(subId);
             const sci = (r[sciKey] || '').trim();
             const com = r[comKey];
             const dStr = r[dateKey];
@@ -3179,6 +3185,7 @@ function parseEBirdCsv(file) {
             locations: locationsArr,
             meta: {
               observations: totalObservations,
+              checklists: checklistIds.size,
               earliest: earliest ? earliest.toISOString() : null,
               latest: latest ? latest.toISOString() : null,
               fileName: file.name,
@@ -4096,10 +4103,10 @@ export default function BirdLifeTracker() {
                   <ChecklistIcon size={32} className="flex-shrink-0" />
                   <div>
                     <div className="font-display" style={{ fontWeight: 600, fontSize: 11, color: '#5a4a3e', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>
-                      Sightings
+                      Checklists
                     </div>
                     <div className="font-display" style={{ fontWeight: 700, fontSize: 24, color: '#2a3445', lineHeight: 1 }}>
-                      {csvMeta ? fmt(csvMeta.observations) : '—'}
+                      {csvMeta ? fmt(csvMeta.checklists ?? csvMeta.observations) : '—'}
                     </div>
                   </div>
                 </div>
