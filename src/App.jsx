@@ -6116,6 +6116,45 @@ const STATE_TO_REGION = {};
 for (const r of REGIONS) for (const s of r.states) STATE_TO_REGION[s] = r.id;
 const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
 
+// ---- State-level (3rd zoom tier) ----
+// Regions that ARE a single state already act as a "state view" (California,
+// Alaska, Hawaii), so their states are not independently selectable. Every
+// other region's member states become selectable to drill into a state view.
+const SINGLE_STATE_REGIONS = new Set(
+  REGIONS.filter(r => r.states.length === 1).map(r => r.id)
+);
+// Per-state merged geometry, keyed by FIPS id. Used as the clip outline and
+// for point-in-polygon heat filtering in the state view.
+const STATE_GEOMETRY = {};
+for (const g of statesTopo.objects.states.geometries) {
+  STATE_GEOMETRY[g.id] = merge(statesTopo, [g]);
+}
+// Is this FIPS a selectable state (i.e. sits inside a multi-state region)?
+function isSelectableState(fips) {
+  const abbr = FIPS_TO_ABBR[fips];
+  const rid = STATE_TO_REGION[abbr];
+  return !!rid && !SINGLE_STATE_REGIONS.has(rid);
+}
+// States that need a reduced scale so they fit the shared state viewBox at the
+// same on-screen size budget. Texas and Montana are the two giants among
+// selectable states (CA and AK — the other huge ones — are their own regions,
+// already excluded); every other state fits comfortably at the normal scale.
+const REDUCED_SCALE_STATE_FIPS = new Set([ABBR_TO_FIPS['TX'], ABBR_TO_FIPS['MT']]);
+// Full state names for headers/breadcrumbs in the state view.
+const STATE_ABBR_TO_NAME = {
+  AL:'Alabama', AZ:'Arizona', AR:'Arkansas', CO:'Colorado', CT:'Connecticut',
+  DE:'Delaware', DC:'District of Columbia', FL:'Florida', GA:'Georgia', ID:'Idaho',
+  IL:'Illinois', IN:'Indiana', IA:'Iowa', KS:'Kansas', KY:'Kentucky', LA:'Louisiana',
+  ME:'Maine', MD:'Maryland', MA:'Massachusetts', MI:'Michigan', MN:'Minnesota',
+  MS:'Mississippi', MO:'Missouri', MT:'Montana', NE:'Nebraska', NV:'Nevada',
+  NH:'New Hampshire', NJ:'New Jersey', NM:'New Mexico', NY:'New York',
+  NC:'North Carolina', ND:'North Dakota', OH:'Ohio', OK:'Oklahoma', OR:'Oregon',
+  PA:'Pennsylvania', RI:'Rhode Island', SC:'South Carolina', SD:'South Dakota',
+  TN:'Tennessee', TX:'Texas', UT:'Utah', VT:'Vermont', VA:'Virginia',
+  WA:'Washington', WV:'West Virginia', WI:'Wisconsin', WY:'Wyoming',
+};
+
+
 // Pre-compute each region's merged polygon (used both as a clip outline when
 // zoomed AND for point-in-polygon filtering of heat points).
 const REGION_GEOMETRY = {};
@@ -6806,6 +6845,12 @@ function SightingsMapView({
   // region's geometry and the heatmap is recomputed using only points inside
   // that region — so a Charlotte home patch can't pollute the Pacific NW view.
   const [region, setRegion] = useState(null);
+  // Active state within a region (FIPS id; null = not drilled to a state).
+  // Zoom hierarchy: !region (US) → region && !stateFips (region) → stateFips (state).
+  const [stateFips, setStateFips] = useState(null);
+  // Leaving a region must also clear any drilled-in state.
+  const goToRegion = (rid) => { setRegion(rid); setStateFips(null); };
+  const goToUS = () => { setRegion(null); setStateFips(null); };
   const points = (mode === 'first' ? pointsFirst : pointsAll) || [];
   const firstAvailable = Array.isArray(pointsFirst) && pointsFirst.length > 0;
 
@@ -6837,6 +6882,45 @@ function SightingsMapView({
         viewBoxH: MAP_H,
       };
     }
+
+    // ----- State view (3rd tier): drilled into a single state within a region.
+    // Same fixed-miles-per-pixel philosophy as the lower-48 regions, but at a
+    // finer resolution (states are smaller than regions). Two tiers: a normal
+    // scale for the vast majority of states, and a reduced scale for Texas so
+    // it fits the shared viewBox without dwarfing everything. Because every
+    // state shares the same viewBox size, on-screen scale stays consistent —
+    // Rhode Island simply renders small inside the same canvas rather than
+    // being blown up to fill it.
+    if (stateFips && STATE_GEOMETRY[stateFips]) {
+      const geo = STATE_GEOMETRY[stateFips];
+      const abbr = FIPS_TO_ABBR[stateFips];
+      // Normal states target ~0.6 mi/px. The two giants that would overflow
+      // the fixed viewBox at that scale — Texas and Montana — get a coarser
+      // ~1.15 mi/px instead so their full span fits.
+      const TARGET_MPP = REDUCED_SCALE_STATE_FIPS.has(stateFips) ? 1.15 : 0.6;
+      const MI_PER_DEG_LAT = 69.0;
+      const FIXED_VB = 900;
+      const k = (MI_PER_DEG_LAT / TARGET_MPP) * (180 / Math.PI);
+      const centroid = geoCentroid(geo);
+      let p = geoAlbers()
+        .scale(k)
+        .rotate([-centroid[0], 0])
+        .center([0, centroid[1]])
+        .translate([0, 0]);
+      const bnd = geoPath(p).bounds(geo);
+      const geoCenterX = (bnd[0][0] + bnd[1][0]) / 2;
+      const geoCenterY = (bnd[0][1] + bnd[1][1]) / 2;
+      p = p.translate([FIXED_VB / 2 - geoCenterX, FIXED_VB / 2 - geoCenterY]);
+      return {
+        activeProj: p,
+        activePath: geoPath(p),
+        activeOutline: geo,
+        activeName: STATE_ABBR_TO_NAME[abbr] || abbr,
+        viewBoxW: FIXED_VB,
+        viewBoxH: FIXED_VB,
+      };
+    }
+
     const geo = REGION_GEOMETRY[region];
     const meta = REGION_BY_ID[region];
     if (!geo || !meta) {
@@ -6923,30 +7007,36 @@ function SightingsMapView({
       viewBoxW: FIXED_VB,
       viewBoxH: FIXED_VB,
     };
-  }, [region]);
+  }, [region, stateFips]);
 
   // Project points to pixel space. Each point is [lng, lat, count, [sciIdx…]].
   // When zoomed to a region, points are first filtered to those inside the
   // region's geometry so the density reflects only that region's data.
-  const { contours, projectedCount, maxValue, singlePointRef, totalSpeciesAcrossLocations, totalLocations } = useMemo(() => {
+  const { contours, projectedCount, maxValue, singlePointRef, totalSpeciesAcrossLocations, totalLocations, scopedSpeciesCount } = useMemo(() => {
     const projected = [];
     let totalW = 0;
-    const regionGeo = region ? REGION_GEOMETRY[region] : null;
+    const scopedSpecies = new Set(); // distinct species indices within scope
+    // Active scope geometry for point filtering: state when drilled in, else
+    // region, else null (full US = no filter).
+    const regionGeo = stateFips ? STATE_GEOMETRY[stateFips]
+      : (region ? REGION_GEOMETRY[region] : null);
     for (const p of points) {
       const lng = p[0], lat = p[1];
       const w = (p.length >= 3 && Number.isFinite(p[2])) ? p[2] : 1;
       // Region filter: skip points outside the active region's geometry.
       if (regionGeo && !geoContains(regionGeo, [lng, lat])) continue;
+      const idxs = (p.length >= 4 && Array.isArray(p[3])) ? p[3] : null;
+      if (idxs) for (const ix of idxs) scopedSpecies.add(ix);
       const xy = activeProj([lng, lat]);
       if (xy && !isNaN(xy[0]) && !isNaN(xy[1])) {
         // carry the species-index list (p[3]) through so the density can
         // de-duplicate species shared across nearby locations.
-        projected.push([xy[0], xy[1], w, (p.length >= 4 && Array.isArray(p[3])) ? p[3] : null]);
+        projected.push([xy[0], xy[1], w, idxs]);
         totalW += w;
       }
     }
     if (projected.length === 0) {
-      return { contours: [], projectedCount: 0, maxValue: 0, singlePointRef: 0, totalSpeciesAcrossLocations: 0, totalLocations: 0 };
+      return { contours: [], projectedCount: 0, maxValue: 0, singlePointRef: 0, totalSpeciesAcrossLocations: 0, totalLocations: 0, scopedSpeciesCount: 0 };
     }
 
     // Bandwidth per zoom level: tighter 3.5 for the national US map, 5 for
@@ -6994,20 +7084,22 @@ function SightingsMapView({
       singlePointRef,
       totalSpeciesAcrossLocations: totalW,
       totalLocations: projected.length,
+      scopedSpeciesCount: scopedSpecies.size,
     };
-  }, [points, region, activeProj, viewBoxW, viewBoxH]);
+  }, [points, region, stateFips, activeProj, viewBoxW, viewBoxH]);
 
   // Highest single-location diversity (useful in the header)
   const peakDiversity = useMemo(() => {
     let m = 0;
-    const regionGeo = region ? REGION_GEOMETRY[region] : null;
+    const regionGeo = stateFips ? STATE_GEOMETRY[stateFips]
+      : (region ? REGION_GEOMETRY[region] : null);
     for (const p of points) {
       if (regionGeo && !geoContains(regionGeo, [p[0], p[1]])) continue;
       const w = (p.length >= 3 && Number.isFinite(p[2])) ? p[2] : 1;
       if (w > m) m = w;
     }
     return m;
-  }, [points, region]);
+  }, [points, region, stateFips]);
 
   // Effective native-species count per region.
   //
@@ -7437,20 +7529,42 @@ function SightingsMapView({
               count. Scope label + optional "← USA" pill sit above the big
               number; locations + "tap to zoom" hint sit below. */}
           <div className="shrink-0 mb-3 text-center">
-            <div className="font-mono text-[9px] sm:text-[10px] ink-faint tracking-[0.25em] uppercase mb-2 flex items-center justify-center gap-2 flex-wrap">
+            <div className="font-mono text-[9px] sm:text-[10px] ink-faint tracking-[0.25em] uppercase mb-2 flex items-center justify-center gap-1.5 flex-wrap">
               <span>Native species</span>
               <span className="ink-faint">·</span>
-              <span className="rust" style={{ fontWeight: 600 }}>{activeName}</span>
-              {region && (
-                <button
-                  onClick={() => setRegion(null)}
-                  className="btn-ghost rounded-full px-2 py-0.5 inline-flex items-center gap-1 ml-1"
-                  style={{ fontSize: '8.5px', letterSpacing: '0.15em' }}
-                  aria-label="Zoom out to USA"
-                >
-                  <ChevronLeft size={10} strokeWidth={2.25} />
-                  USA
-                </button>
+              {/* Breadcrumb: US › Region › State. Each ancestor is a tap target
+                  to zoom back out one or more levels; the current level is
+                  shown in rust and isn't a button. */}
+              {!region ? (
+                <span className="rust" style={{ fontWeight: 600 }}>United States</span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 flex-wrap justify-center">
+                  <button
+                    onClick={goToUS}
+                    className="btn-ghost rounded-full px-2 py-0.5 inline-flex items-center gap-1"
+                    style={{ fontSize: '8.5px', letterSpacing: '0.15em' }}
+                    aria-label="Zoom out to United States"
+                  >
+                    USA
+                  </button>
+                  <ChevronRight size={9} strokeWidth={2.25} className="ink-faint" />
+                  {stateFips ? (
+                    <>
+                      <button
+                        onClick={() => setStateFips(null)}
+                        className="btn-ghost rounded-full px-2 py-0.5"
+                        style={{ fontSize: '8.5px', letterSpacing: '0.15em' }}
+                        aria-label="Zoom out to region"
+                      >
+                        {REGION_BY_ID[region]?.name || region}
+                      </button>
+                      <ChevronRight size={9} strokeWidth={2.25} className="ink-faint" />
+                      <span className="rust" style={{ fontWeight: 600 }}>{activeName}</span>
+                    </>
+                  ) : (
+                    <span className="rust" style={{ fontWeight: 600 }}>{activeName}</span>
+                  )}
+                </span>
               )}
             </div>
             <div className="flex items-baseline justify-center gap-2 flex-wrap">
@@ -7458,7 +7572,7 @@ function SightingsMapView({
                 className="font-display ink leading-none"
                 style={{ fontWeight: 800, fontSize: 'clamp(2.75rem, 10vw, 4.25rem)', letterSpacing: '-0.02em' }}
               >
-                {region ? (effectiveRegionNativeCount[region] ?? 0) : (userCount ?? 0)}
+                {stateFips ? scopedSpeciesCount : (region ? (effectiveRegionNativeCount[region] ?? 0) : (userCount ?? 0))}
               </div>
               <div
                 className="font-display ink-faint leading-none"
@@ -7476,7 +7590,7 @@ function SightingsMapView({
                       location{totalLocations === 1 ? '' : 's'}
                     </>
                   ) : 'no first-found locations in scope'}
-                  {!region && ' · tap a region to zoom in'}
+                  {!region ? ' · tap a region to zoom in' : (!stateFips ? ' · tap a state to zoom in' : '')}
                 </>
               ) : (
                 <>
@@ -7491,7 +7605,7 @@ function SightingsMapView({
                       )}
                     </>
                   ) : 'no locations in scope'}
-                  {!region && ' · tap a region to zoom in'}
+                  {!region ? ' · tap a region to zoom in' : (!stateFips ? ' · tap a state to zoom in' : '')}
                 </>
               )}
             </p>
@@ -7533,26 +7647,38 @@ function SightingsMapView({
                   </mask>
                 </defs>
 
-                {/* State fills. When zoomed to a region, states outside the
-                    region get a much fainter fill so the region reads as the
-                    focal area but neighbors remain as visual context.
-                    On the full US view, every state is clickable to zoom
-                    into its region. */}
+                {/* State fills. On the full US view, every state is clickable
+                    to zoom into its region. Inside a region (not yet drilled
+                    into a state), each selectable member state is clickable to
+                    zoom into that state's view. */}
                 <g>
                   {STATES.features.map((s) => {
                     const abbr = FIPS_TO_ABBR[s.id];
                     const rid = STATE_TO_REGION[abbr];
-                    const inActive = !region || rid === region;
-                    const clickable = !region && !!rid;
+                    const inRegionView = region && !stateFips;
+                    const isActiveState = stateFips === s.id;
+                    // "in the active scope" for fill emphasis
+                    const inActive = !region
+                      ? true
+                      : stateFips
+                        ? isActiveState
+                        : rid === region;
+                    // clickable: US view → any state (to its region);
+                    // region view → selectable member states (to state view)
+                    const clickable = !region
+                      ? !!rid
+                      : (inRegionView && rid === region && isSelectableState(s.id));
                     return (
                       <path
                         key={s.id}
                         d={activePath(s) || ''}
-                        // Pale mint wash for active states, even paler for
-                        // inactive (out-of-region) so the active region pops
                         fill={inActive ? '#c8e6c8' : 'rgba(200,230,200,0.30)'}
                         stroke="none"
-                        onClick={clickable ? () => setRegion(rid) : undefined}
+                        onClick={
+                          !region
+                            ? (clickable ? () => goToRegion(rid) : undefined)
+                            : (clickable ? () => setStateFips(s.id) : undefined)
+                        }
                         style={{ cursor: clickable ? 'pointer' : 'default' }}
                       />
                     );
@@ -7567,18 +7693,26 @@ function SightingsMapView({
                     the active region. */}
                 {region && PARKS_BY_REGION[region] && PARKS_BY_REGION[region].length > 0 && (
                   <g>
-                    {PARKS_BY_REGION[region].map((park, i) => (
-                      <path
-                        key={`park-${i}`}
-                        d={activePath(park) || ''}
-                        fill="rgba(46,107,79,0.10)"
-                        stroke="rgba(46,107,79,0.45)"
-                        strokeWidth={0.75}
-                        strokeLinejoin="round"
-                      >
-                        <title>{park.properties.name} National Park</title>
-                      </path>
-                    ))}
+                    {PARKS_BY_REGION[region]
+                      .filter((park) => {
+                        // In state view, only show parks inside the active state.
+                        if (!stateFips) return true;
+                        const geo = STATE_GEOMETRY[stateFips];
+                        try { return geo && geoContains(geo, geoCentroid(park)); }
+                        catch { return false; }
+                      })
+                      .map((park, i) => (
+                        <path
+                          key={`park-${i}`}
+                          d={activePath(park) || ''}
+                          fill="rgba(46,107,79,0.10)"
+                          stroke="rgba(46,107,79,0.45)"
+                          strokeWidth={0.75}
+                          strokeLinejoin="round"
+                        >
+                          <title>{park.properties.name} National Park</title>
+                        </path>
+                      ))}
                   </g>
                 )}
 
@@ -7617,6 +7751,29 @@ function SightingsMapView({
                     strokeLinejoin="round"
                     pointerEvents="none"
                   />
+                )}
+
+                {/* Selectable-state boundaries — only in the region view (not
+                    yet drilled into a state). Each selectable member state of
+                    the active region gets a clear orange outline mirroring the
+                    coral region dividers on the US view, signalling that states
+                    are now the tappable unit. Single-state regions (CA/AK/HI)
+                    have no selectable states, so nothing draws there. */}
+                {region && !stateFips && (
+                  <g pointerEvents="none">
+                    {STATES.features
+                      .filter((s) => STATE_TO_REGION[FIPS_TO_ABBR[s.id]] === region && isSelectableState(s.id))
+                      .map((s) => (
+                        <path
+                          key={`selstate-${s.id}`}
+                          d={activePath(s) || ''}
+                          fill="none"
+                          stroke="#ff8a3d"
+                          strokeWidth={1.6}
+                          strokeLinejoin="round"
+                        />
+                      ))}
+                  </g>
                 )}
 
                 {/* Outer border for the active scope — dark mint. */}
