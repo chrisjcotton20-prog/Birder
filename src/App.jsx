@@ -7652,7 +7652,13 @@ function SightingsMapView({
                     into a state), each selectable member state is clickable to
                     zoom into that state's view. */}
                 <g>
-                  {STATES.features.map((s) => {
+                  {/* For AK/HI (custom conic projection), the raw multi-part
+                      state geometry — with the Aleutians crossing the ±180°
+                      antimeridian — projects into a filled-rectangle artifact.
+                      So for those single-state regions we skip the per-state
+                      fills entirely and paint the scope from the clean merged
+                      `activeOutline` geometry just below (activeFill). */}
+                  {!(region && REGION_PROJ_FN[region]) && STATES.features.map((s) => {
                     const abbr = FIPS_TO_ABBR[s.id];
                     const rid = STATE_TO_REGION[abbr];
                     const inRegionView = region && !stateFips;
@@ -7683,6 +7689,17 @@ function SightingsMapView({
                       />
                     );
                   })}
+                  {/* Clean scope fill for AK/HI — the merged region outline
+                      projects correctly under the conic projection, so this
+                      paints Alaska/Hawaii's true shape (no rectangle). */}
+                  {region && REGION_PROJ_FN[region] && (
+                    <path
+                      d={activePath(activeOutline) || ''}
+                      fill="#c8e6c8"
+                      stroke="none"
+                      pointerEvents="none"
+                    />
+                  )}
                 </g>
 
                 {/* National Park outlines — only when zoomed into a region.
@@ -7701,18 +7718,34 @@ function SightingsMapView({
                         try { return geo && geoContains(geo, geoCentroid(park)); }
                         catch { return false; }
                       })
-                      .map((park, i) => (
-                        <path
-                          key={`park-${i}`}
-                          d={activePath(park) || ''}
-                          fill="rgba(46,107,79,0.10)"
-                          stroke="rgba(46,107,79,0.45)"
-                          strokeWidth={0.75}
-                          strokeLinejoin="round"
-                        >
-                          <title>{park.properties.name} National Park</title>
-                        </path>
-                      ))}
+                      .map((park, i) => {
+                        const d = activePath(park) || '';
+                        // Guard against projection artifacts: some Alaska parks,
+                        // under the AK conic projection, degenerate into a path
+                        // that fills the whole viewBox (the ±180° antimeridian
+                        // wrap). Detect an absurdly large projected bounding box
+                        // and skip drawing that park rather than shade the map.
+                        let skip = false;
+                        try {
+                          const bb = activePath.bounds(park);
+                          const w = bb[1][0] - bb[0][0];
+                          const h = bb[1][1] - bb[0][1];
+                          if (w > viewBoxW * 1.5 || h > viewBoxH * 1.5) skip = true;
+                        } catch { skip = true; }
+                        if (!d || skip) return null;
+                        return (
+                          <path
+                            key={`park-${i}`}
+                            d={d}
+                            fill="rgba(46,107,79,0.10)"
+                            stroke="rgba(46,107,79,0.45)"
+                            strokeWidth={0.75}
+                            strokeLinejoin="round"
+                          >
+                            <title>{park.properties.name} National Park</title>
+                          </path>
+                        );
+                      })}
                   </g>
                 )}
 
