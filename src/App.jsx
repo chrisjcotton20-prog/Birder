@@ -1095,19 +1095,104 @@ const IUCN_STATUS = {
   "Magumma parva": "VU", "Telespiza cantans": "VU", "Chasiempis sandwichensis": "VU",
   "Chasiempis sclateri": "VU", "Drepanis coccinea": "VU", "Ammospiza caudacuta": "VU",
   "Chlorodrepanis flava": "VU", "Chlorodrepanis stejnegeri": "VU",
+  // Additional continental VU species — verified against IUCN/BirdLife (2018–2024
+  // assessments); these were uplisted from Least Concern in recent reassessments
+  // and were missing from the original list.
+  "Podiceps auritus": "VU",           // Horned Grebe (uplisted 2015)
+  "Tringa flavipes": "VU",            // Lesser Yellowlegs (uplisted 2020)
+  "Coccothraustes vespertinus": "VU", // Evening Grosbeak (uplisted 2018)
+  "Chaetura pelagica": "VU",          // Chimney Swift (uplisted 2018)
+  "Calcarius ornatus": "VU",          // Chestnut-collared Longspur (uplisted 2020)
+  // Additional VU species — verified against user-provided IUCN assessments export.
+  "Onychoprion aleuticus": "VU",  // Aleutian Tern
+  "Fratercula arctica": "VU",  // Atlantic Puffin
+  "Cypseloides niger": "VU",  // Black Swift
+  "Pluvialis squatarola": "VU",  // Black-bellied Plover
+  "Rissa tridactyla": "VU",  // Black-legged Kittiwake
+  "Calidris subruficollis": "VU",  // Buff-breasted Sandpiper
+  "Aythya ferina": "VU",  // Common Pochard
+  "Centrocercus urophasianus": "VU",  // Greater Sage-Grouse
+  "Limosa haemastica": "VU",  // Hudsonian Godwit
+  "Hydrobates leucorhous": "VU",  // Leach's Storm-Petrel
+  "Limosa fedoa": "VU",  // Marbled Godwit
+  "Aerodramus bartschi": "VU",  // Mariana Swiftlet
+  "Synthliboramphus scrippsi": "VU",  // Scripps's Murrelet
+  "Calidris acuminata": "VU",  // Sharp-tailed Sandpiper
+  "Limnodromus griseus": "VU",  // Short-billed Dowitcher
+  "Bubo scandiacus": "VU",  // Snowy Owl
+  "Calidris fuscicollis": "VU",  // White-rumped Sandpiper
   // Endangered (EN)
   "Pterodroma cahow": "EN", "Pterodroma hasitata": "EN", "Anas wyvilliana": "EN",
   "Centrocercus minimus": "EN", "Grus americana": "EN", "Brachyramphus marmoratus": "EN",
   "Setophaga chrysoparia": "EN", "Agelaius tricolor": "EN", "Loxops coccineus": "EN",
   "Paroreomyza montana": "EN", "Chasiempis ibidis": "EN", "Hydrobates homochroa": "EN",
   "Loxops mana": "EN", "Hemignathus wilsoni": "EN",
+  // Additional EN species — verified against user-provided IUCN assessments export.
+  "Laterallus jamaicensis": "EN",  // Black Rail
+  "Leucosticte atrata": "EN",  // Black Rosy-Finch
+  "Leucosticte australis": "EN",  // Brown-capped Rosy-Finch
+  "Hydrobates socorroensis": "EN",  // Townsend's Storm-Petrel
   // Critically Endangered (CR)
   "Puffinus newelli": "CR", "Anas laysanensis": "CR", "Gymnogyps californianus": "CR",
   "Myadestes palmeri": "CR", "Acrocephalus familiaris": "CR", "Loxioides bailleui": "CR",
   "Loxops caeruleirostris": "CR", "Oreomystis bairdi": "CR", "Palmeria dolei": "CR",
   "Pseudonestor xanthophrys": "CR", "Telespiza ultima": "CR",
-  // Near Threatened (NT) — the two US NT species
+  // Near Threatened (NT)
   "Brachyramphus brevirostris": "NT", "Vireo atricapilla": "NT",
+  // Additional continental NT species — verified against IUCN/BirdLife.
+  "Selasphorus rufus": "NT",     // Rufous Hummingbird (uplisted 2018)
+  "Charadrius melodus": "NT",    // Piping Plover
+  "Vermivora chrysoptera": "NT", // Golden-winged Warbler
+  // Additional NT species — verified against user-provided IUCN assessments export.
+  "Peucaea aestivalis": "NT",  // Bachman's Sparrow
+  "Limosa lapponica": "NT",  // Bar-tailed Godwit
+  "Melanitta americana": "NT",  // Black Scoter
+  "Phoebastria nigripes": "NT",  // Black-footed Albatross
+  "Limosa limosa": "NT",  // Black-tailed Godwit
+  "Puffinus opisthomelas": "NT",  // Black-vented Shearwater
+  "Setophaga striata": "NT",  // Blackpoll Warbler
+  "Dolichonyx oryzivorus": "NT",  // Bobolink
+  "Euphagus cyanocephalus": "NT",  // Brewer's Blackbird
+  "Ptychoramphus aleuticus": "NT",  // Cassin's Auklet
+  "Antrostomus carolinensis": "NT",  // Chuck-will's-widow
+  "Somateria mollissima": "NT",  // Common Eider
+  "Quiscalus quiscula": "NT",  // Common Grackle
+  "Calidris alpina": "NT",  // Dunlin
+  "Sturnella magna": "NT",  // Eastern Meadowlark
+  "Antrostomus vociferus": "NT",  // Eastern Whip-poor-will
+  "Thalasseus elegans": "NT",  // Elegant Tern
+  "Pterodroma feae": "NT",  // Fea's Petrel
+  "Ardenna carneipes": "NT",  // Flesh-footed Shearwater
+  "Tringa melanoleuca": "NT",  // Greater Yellowlegs
+  "Zonotrichia querula": "NT",  // Harris's Sparrow
+  "Buteo solitarius": "NT",  // Hawaiian Hawk
+  "Larus heermanni": "NT",  // Heermann's Gull
+  "Pagophila eburnea": "NT",  // Ivory Gull
+  "Charadrius vociferus": "NT",  // Killdeer
+  "Rallus elegans": "NT",  // King Rail
+  "Setophaga kirtlandii": "NT",  // Kirtland's Warbler
+  "Phoebastria immutabilis": "NT",  // Laysan Albatross
+  "Calidris minutilla": "NT",  // Least Sandpiper
+  "Lanius ludovicianus": "NT",  // Loggerhead Shrike
+  "Limnodromus scolopaceus": "NT",  // Long-billed Dowitcher
+  "Pterodroma inexpectata": "NT",  // Mottled Petrel
+  "Anarhynchus montanus": "NT",  // Mountain Plover
+  "Colinus virginianus": "NT",  // Northern Bobwhite
+  "Calidris canutus": "NT",  // Red Knot
+  "Dryobates borealis": "NT",  // Red-cockaded Woodpecker
+  "Calidris ruficollis": "NT",  // Red-necked Stint
+  "Egretta rufescens": "NT",  // Reddish Egret
+  "Rallus obsoletus": "NT",  // Ridgway's Rail
+  "Arenaria interpres": "NT",  // Ruddy Turnstone
+  "Emberiza rustica": "NT",  // Rustic Bunting
+  "Calidris pusilla": "NT",  // Semipalmated Sandpiper
+  "Anarhynchus nivosus": "NT",  // Snowy Plover
+  "Ardenna grisea": "NT",  // Sooty Shearwater
+  "Somateria fischeri": "NT",  // Spectacled Eider
+  "Strix occidentalis": "NT",  // Spotted Owl
+  "Calidris himantopus": "NT",  // Stilt Sandpiper
+  "Patagioenas leucocephala": "NT",  // White-crowned Pigeon
+  "Gavia adamsii": "NT",  // Yellow-billed Loon
 };
 const AT_RISK_SCI = new Set(Object.keys(IUCN_STATUS));
 
@@ -1246,11 +1331,11 @@ const BADGE_GROUPS = [
     accent: '#c9a01a',
     value: (s) => s.threatenedCount,
     tiers: [
-      { threshold: 1,  name: 'First Watch',     desc: 'First threatened species' },
-      { threshold: 15, name: 'Protector',       desc: '15 threatened species' },
-      { threshold: 30, name: 'Steward',         desc: '30 threatened species' },
-      { threshold: 45, name: 'Conservationist', desc: '45 threatened species' },
-      { threshold: 61, name: 'Last Stand',      desc: 'All 61 at-risk species' },
+      { threshold: 1,   name: 'First Watch',     desc: 'First threatened species' },
+      { threshold: 25,  name: 'Protector',       desc: '25 threatened species' },
+      { threshold: 50,  name: 'Steward',         desc: '50 threatened species' },
+      { threshold: 90,  name: 'Conservationist', desc: '90 threatened species' },
+      { threshold: 139, name: 'Last Stand',      desc: 'All 139 at-risk species' },
     ],
   },
   {
