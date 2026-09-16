@@ -6682,77 +6682,153 @@ function TimelineView({ speciesStats, onBack }) {
           </div>
         )}
 
-        {/* timeline feed */}
-        {days.length > 0 && (
+        {/* timeline feed — TO SCALE. Consecutive events are separated by a
+            spacer whose height is proportional to the real time elapsed between
+            them, so long gaps between lifers are felt. The continuous left rail
+            carries faint month ticks (and bolder year markers) placed at their
+            true position within each gap. */}
+        {days.length > 0 && (() => {
+          const DAY = 86400000;
+          const PX_PER_DAY = 2.1;     // vertical scale: ~63px per month
+          const MIN_GAP = 14;         // floor so same-week events don't collide
+          const MAX_GAP = 620;        // gentle cap so a multi-year hiatus stays scrollable
+          const RAIL_X = 15;
+
+          // Month/year tick marks that fall strictly between two timestamps
+          // (older→newer), positioned proportionally within a spacer of the
+          // given height. Newer is at the TOP of the spacer (y=0).
+          const ticksBetween = (olderTs, newerTs, height) => {
+            const ticks = [];
+            const span = newerTs - olderTs;
+            if (span <= 0) return ticks;
+            const d = new Date(olderTs);
+            // advance to the first day of the next month boundary
+            let m = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+            while (m < newerTs) {
+              const dt = new Date(m);
+              const yFromTop = ((newerTs - m) / span) * height;
+              const isYear = dt.getMonth() === 0;
+              ticks.push({
+                y: yFromTop,
+                label: isYear
+                  ? String(dt.getFullYear())
+                  : dt.toLocaleDateString('en-US', { month: 'short' }),
+                isYear,
+              });
+              m = new Date(dt.getFullYear(), dt.getMonth() + 1, 1).getTime();
+            }
+            return ticks;
+          };
+
+          return (
           <div className="anim-3" style={{ position: 'relative' }}>
-            {/* vertical rail */}
-            <div style={{ position: 'absolute', left: 15, top: 6, bottom: 6, width: 2, background: 'rgba(42,52,69,0.14)' }} />
-            <div className="flex flex-col gap-2.5">
-              {days.map((day) => {
+            {/* continuous rail behind everything */}
+            <div style={{ position: 'absolute', left: RAIL_X, top: 6, bottom: 6, width: 2, background: 'rgba(42,52,69,0.14)' }} />
+            <div className="flex flex-col">
+              {days.map((day, i) => {
                 const isOpen = expanded.has(day.key);
                 const count = day.species.length;
-                const newest = day.species[day.species.length - 1].seq; // highest seq that day
+                const newest = day.species[day.species.length - 1].seq; // running total at end of day
+                // spacer to the NEXT (older) event below
+                const older = days[i + 1];
+                let spacerH = 0, ticks = [];
+                if (older) {
+                  const gapDays = (day.ts - older.ts) / DAY;
+                  spacerH = Math.max(MIN_GAP, Math.min(MAX_GAP, gapDays * PX_PER_DAY));
+                  ticks = ticksBetween(older.ts, day.ts, spacerH);
+                }
                 return (
-                  <div key={day.key} style={{ position: 'relative', paddingLeft: 40 }}>
-                    {/* node dot */}
-                    <div style={{
-                      position: 'absolute', left: 8, top: 14, width: 16, height: 16, borderRadius: '50%',
-                      background: '#ff9a76', border: '2.5px solid #2a3445', boxShadow: '0 1px 0 0 #2a3445',
-                    }} />
-                    {/* event card */}
-                    <button
-                      onClick={() => toggle(day.key)}
-                      className="w-full text-left"
-                      style={{
-                        background: '#fffdf6', border: '2.5px solid #2a3445', borderRadius: 16,
-                        boxShadow: '0 3px 0 0 #2a3445', padding: '11px 13px',
-                      }}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-display" style={{ fontWeight: 700, fontSize: 14.5, color: '#2a3445', lineHeight: 1.15 }}>
-                            {fmtDay(day.ts)}
-                          </div>
-                          <div style={{ fontSize: 11.5, color: '#8a7a5e', marginTop: 2 }}>
-                            {count === 1 ? '1 new species' : `${count} new species`}
-                            {' · '}reached #{newest}
-                          </div>
-                        </div>
-                        <div
-                          className="shrink-0 flex items-center justify-center"
-                          style={{
-                            width: 26, height: 26, borderRadius: '50%',
-                            background: isOpen ? '#ff9a76' : '#fff8e8',
-                            border: '2px solid #2a3445', color: '#2a3445',
-                            transition: 'transform 0.15s', transform: isOpen ? 'rotate(180deg)' : 'none',
-                          }}
-                        >
-                          <ChevronDown size={14} strokeWidth={2.5} />
-                        </div>
-                      </div>
-
-                      {/* expanded species list */}
-                      {isOpen && (
-                        <div style={{ marginTop: 10, borderTop: '1.5px dashed rgba(42,52,69,0.18)', paddingTop: 8 }}>
-                          {day.species.map((s) => (
-                            <div key={s.sci} className="flex items-baseline justify-between gap-3" style={{ padding: '4px 0' }}>
-                              <span style={{ fontSize: 13.5, color: '#2a3445', fontWeight: 600 }}>
-                                {COMMON_BY_SCI[s.sci] || s.sci}
-                              </span>
-                              <span className="font-mono shrink-0" style={{ fontSize: 11, color: '#b0692e', fontWeight: 700 }}>
-                                #{s.seq}
-                              </span>
+                  <div key={day.key}>
+                    {/* event row */}
+                    <div style={{ position: 'relative', paddingLeft: 40 }}>
+                      {/* node dot on the rail */}
+                      <div style={{
+                        position: 'absolute', left: RAIL_X - 7, top: 14, width: 16, height: 16, borderRadius: '50%',
+                        background: '#ff9a76', border: '2.5px solid #2a3445', boxShadow: '0 1px 0 0 #2a3445',
+                      }} />
+                      {/* event card */}
+                      <button
+                        onClick={() => toggle(day.key)}
+                        className="w-full text-left"
+                        style={{
+                          background: '#fffdf6', border: '2.5px solid #2a3445', borderRadius: 16,
+                          boxShadow: '0 3px 0 0 #2a3445', padding: '11px 13px',
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-display" style={{ fontWeight: 700, fontSize: 14.5, color: '#2a3445', lineHeight: 1.2 }}>
+                              {count === 1 ? '1 new lifer' : `${count} new lifers`}
+                              {', '}Reached {newest} {newest === 1 ? 'lifer' : 'lifers'}
                             </div>
-                          ))}
+                            <div style={{ fontSize: 11, color: '#a89a7e', marginTop: 2 }}>
+                              {fmtDay(day.ts)}
+                            </div>
+                          </div>
+                          <div
+                            className="shrink-0 flex items-center justify-center"
+                            style={{
+                              width: 26, height: 26, borderRadius: '50%',
+                              background: isOpen ? '#ff9a76' : '#fff8e8',
+                              border: '2px solid #2a3445', color: '#2a3445',
+                              transition: 'transform 0.15s', transform: isOpen ? 'rotate(180deg)' : 'none',
+                            }}
+                          >
+                            <ChevronDown size={14} strokeWidth={2.5} />
+                          </div>
                         </div>
-                      )}
-                    </button>
+
+                        {/* expanded species list */}
+                        {isOpen && (
+                          <div style={{ marginTop: 10, borderTop: '1.5px dashed rgba(42,52,69,0.18)', paddingTop: 8 }}>
+                            {day.species.map((s) => (
+                              <div key={s.sci} className="flex items-baseline justify-between gap-3" style={{ padding: '4px 0' }}>
+                                <span style={{ fontSize: 13.5, color: '#2a3445', fontWeight: 600 }}>
+                                  {COMMON_BY_SCI[s.sci] || s.sci}
+                                </span>
+                                <span className="font-mono shrink-0" style={{ fontSize: 11, color: '#b0692e', fontWeight: 700 }}>
+                                  #{s.seq}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* time-proportional spacer with month/year ticks */}
+                    {older && (
+                      <div style={{ position: 'relative', height: spacerH }}>
+                        {ticks.map((t, ti) => (
+                          <div key={ti} style={{ position: 'absolute', top: t.y, left: 0, right: 0, height: 0 }}>
+                            {/* tick mark across the rail */}
+                            <div style={{
+                              position: 'absolute', left: RAIL_X - (t.isYear ? 7 : 4), top: -1,
+                              width: t.isYear ? 14 : 8, height: 2,
+                              background: t.isYear ? 'rgba(42,52,69,0.4)' : 'rgba(42,52,69,0.2)',
+                            }} />
+                            {/* label */}
+                            <div style={{
+                              position: 'absolute', left: RAIL_X + 12, top: -7,
+                              fontSize: t.isYear ? 11 : 9.5,
+                              fontWeight: t.isYear ? 700 : 500,
+                              color: t.isYear ? 'rgba(42,52,69,0.55)' : 'rgba(42,52,69,0.32)',
+                              letterSpacing: t.isYear ? '0.04em' : '0.02em',
+                              fontFamily: t.isYear ? 'Fredoka, sans-serif' : 'inherit',
+                            }}>
+                              {t.label}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {undatedCount > 0 && (
           <div style={{ fontSize: 10.5, color: '#9a8a72', textAlign: 'center', marginTop: 6, fontStyle: 'italic' }}>
