@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Papa from 'papaparse';
-import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon, ChevronLeft, ChevronRight, Share2, Plus, Download, ArrowLeftRight, Home, Lightbulb, MapPin, Calendar, Eye, Anchor, Moon, Award, Lock, Trophy, Globe, Sparkles, Waves, VenetianMask, Footprints } from 'lucide-react';
+import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon, ChevronLeft, ChevronRight, Share2, Plus, Download, ArrowLeftRight, Home, Lightbulb, MapPin, Calendar, Eye, Anchor, Moon, Award, Lock, Trophy, Globe, Sparkles, Waves, VenetianMask, Footprints, CalendarDays, ChevronDown } from 'lucide-react';
 import { storage } from './lib/storage.js';
 import { BluebirdMascot, Cardinal, Cloud, Sparkle, Compass, TreeIcon, HeartIcon, EyeIcon, CalendarIcon, ChecklistIcon, CURRENT_MASCOT } from './Illustrations.jsx';
 import { geoAlbersUsa, geoAlbers, geoPath, geoContains, geoCentroid } from 'd3-geo';
@@ -809,6 +809,8 @@ const NATIVE_SCI = new Set(NATIVE_SPECIES.map(([, s]) => s));
 // point data, so the distinct-species density can de-duplicate species that
 // occur at multiple nearby locations.
 const SCI_TO_INDEX = new Map(NATIVE_SPECIES.map(([, s], i) => [s, i]));
+// Scientific name -> common name, for views that key off sci (e.g. the timeline).
+const COMMON_BY_SCI = Object.fromEntries(NATIVE_SPECIES.map(([c, s]) => [s, c]));
 
 // eBird scientific-name ALIASES.
 // eBird/Clements periodically shuffles species between genera, and different
@@ -4394,6 +4396,51 @@ export default function BirdLifeTracker() {
               </button>
             )}
 
+            {/* ===== Timeline CTA — chunky coral pill ===== */}
+            {points && points.length > 0 && (
+              <button
+                onClick={() => setView('timeline')}
+                className="anim-5 w-full inline-flex items-center justify-between gap-3"
+                style={{
+                  background: 'linear-gradient(135deg, #ff9a76 0%, #ffc4a3 100%)',
+                  border: '3px solid #2a3445',
+                  boxShadow: '0 5px 0 0 #2a3445',
+                  borderRadius: 20,
+                  padding: '11px 18px',
+                  color: '#2a3445',
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <CalendarDays size={40} className="flex-shrink-0" strokeWidth={2} />
+                  <div className="text-left">
+                    <div
+                      className="font-display"
+                      style={{ fontWeight: 700, fontSize: 18, letterSpacing: '0.01em', lineHeight: 1 }}
+                    >
+                      Timeline
+                    </div>
+                    <div
+                      className="font-sans"
+                      style={{ fontWeight: 600, fontSize: 11, marginTop: 3, color: '#8a4a2e' }}
+                    >
+                      When you added each lifer
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: '#fff', border: '2.5px solid #2a3445',
+                    boxShadow: '0 2px 0 0 #2a3445',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#2a3445', fontWeight: 700, fontSize: 18,
+                  }}
+                >
+                  ›
+                </div>
+              </button>
+            )}
+
             {/* ===== Badges CTA — chunky gold pill ===== */}
             {points && points.length > 0 && (
               <button
@@ -4547,6 +4594,13 @@ export default function BirdLifeTracker() {
           regionNativeCount={csvMeta?.regionNativeCount || {}}
           speciesStats={csvMeta?.speciesStats || {}}
           usNonNativeCount={csvMeta?.usNonNativeCount || 0}
+          onBack={() => setView('dashboard')}
+        />
+      )}
+
+      {view === 'timeline' && (
+        <TimelineView
+          speciesStats={csvMeta?.speciesStats || {}}
           onBack={() => setView('dashboard')}
         />
       )}
@@ -6517,6 +6571,199 @@ function BadgeIcon({ name, size = 22, color }) {
   if (name === 'boot') return <Footprints {...props} />;
   return <Trophy {...props} />;
 }
+
+// ============================================================================
+// Observation Timeline — a chronological feed of the days new species were
+// added to the life list. Each day is a collapsible event; expanding it lists
+// the species added that day, each with its running life-list number.
+// ============================================================================
+function TimelineView({ speciesStats, onBack }) {
+  // Build the ordered list of "lifer" events. Each seen species contributes its
+  // first-seen date; we sort ALL of them ascending to assign a running life-list
+  // sequence number (#1 = earliest species), then group by calendar day.
+  const { days, totalSpecies, undatedCount } = useMemo(() => {
+    const ss = speciesStats || {};
+    const entries = [];
+    let undated = 0;
+    for (const sci of Object.keys(ss)) {
+      const iso = ss[sci] && ss[sci].first;
+      if (!iso) { undated++; continue; }
+      const ts = new Date(iso).getTime();
+      if (!Number.isFinite(ts)) { undated++; continue; }
+      entries.push({ sci, ts, iso });
+    }
+    // ascending by first-seen to assign life-list order
+    entries.sort((a, b) => a.ts - b.ts);
+    entries.forEach((e, i) => { e.seq = i + 1; }); // #1 = first ever
+
+    // group by calendar day (local date key)
+    const byDay = new Map();
+    for (const e of entries) {
+      const d = new Date(e.ts);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!byDay.has(key)) byDay.set(key, { key, ts: e.ts, species: [] });
+      byDay.get(key).species.push(e);
+    }
+    // within a day, show species in life-list order (ascending seq)
+    for (const day of byDay.values()) day.species.sort((a, b) => a.seq - b.seq);
+    // days newest-first
+    const dayList = Array.from(byDay.values()).sort((a, b) => b.ts - a.ts);
+    return { days: dayList, totalSpecies: entries.length, undatedCount: undated };
+  }, [speciesStats]);
+
+  // Which day keys are expanded (collapsed by default).
+  const [expanded, setExpanded] = useState(() => new Set());
+  const toggle = (key) => setExpanded((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+
+  const fmtDay = (ts) => new Date(ts).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
+  });
+
+  return (
+    <div
+      className="relative max-w-3xl mx-auto px-4 sm:px-8 py-4 sm:py-6 flex flex-col"
+      style={{ minHeight: '100vh' }}
+    >
+      <div className="anim-1 flex flex-col gap-3 pb-6">
+        {/* header — chunky coral banner */}
+        <header
+          className="anim-1 relative flex items-center justify-between mb-1 shrink-0"
+          style={{
+            background: 'linear-gradient(135deg, #ff9a76 0%, #ffc4a3 100%)',
+            border: '3px solid #2a3445',
+            boxShadow: '0 4px 0 0 #2a3445',
+            borderRadius: 22,
+            padding: '12px 16px',
+          }}
+        >
+          <button
+            onClick={onBack}
+            aria-label="Back to home"
+            className="inline-flex items-center gap-1.5"
+            style={{
+              background: '#fff', border: '2.5px solid #2a3445', borderRadius: 999,
+              padding: '6px 14px 6px 10px', color: '#2a3445',
+              boxShadow: '0 2px 0 0 #2a3445', fontFamily: 'Fredoka, sans-serif', fontWeight: 600, fontSize: 14,
+            }}
+          >
+            <ChevronLeft size={16} strokeWidth={2.5} /> Home
+          </button>
+          <div className="font-display flex items-center gap-2" style={{ fontWeight: 700, fontSize: 20, color: '#2a3445', letterSpacing: '0.02em' }}>
+            Timeline <CalendarDays size={20} strokeWidth={2.25} />
+          </div>
+        </header>
+
+        {/* tally */}
+        <div className="text-center anim-2" style={{ marginTop: 4, marginBottom: 4 }}>
+          <span
+            className="font-mono inline-flex items-center"
+            style={{
+              fontSize: 13, fontWeight: 600, color: '#2a3445',
+              background: '#fff8e8', border: '2px solid #2a3445', borderRadius: 999,
+              padding: '3px 12px', boxShadow: '0 2px 0 0 #2a3445',
+            }}
+          >
+            {totalSpecies}<span style={{ color: '#8a7a5e' }}>&nbsp;lifers · {days.length} days</span>
+          </span>
+        </div>
+
+        {/* empty state */}
+        {days.length === 0 && (
+          <div className="surface-1 rounded-2xl p-6 text-center anim-3">
+            <CalendarDays size={30} className="rust mx-auto mb-2" />
+            <p className="text-sm ink-soft leading-relaxed">
+              No dated sightings yet. Upload your eBird CSV on the home screen and
+              your life-list milestones will appear here.
+            </p>
+          </div>
+        )}
+
+        {/* timeline feed */}
+        {days.length > 0 && (
+          <div className="anim-3" style={{ position: 'relative' }}>
+            {/* vertical rail */}
+            <div style={{ position: 'absolute', left: 15, top: 6, bottom: 6, width: 2, background: 'rgba(42,52,69,0.14)' }} />
+            <div className="flex flex-col gap-2.5">
+              {days.map((day) => {
+                const isOpen = expanded.has(day.key);
+                const count = day.species.length;
+                const newest = day.species[day.species.length - 1].seq; // highest seq that day
+                return (
+                  <div key={day.key} style={{ position: 'relative', paddingLeft: 40 }}>
+                    {/* node dot */}
+                    <div style={{
+                      position: 'absolute', left: 8, top: 14, width: 16, height: 16, borderRadius: '50%',
+                      background: '#ff9a76', border: '2.5px solid #2a3445', boxShadow: '0 1px 0 0 #2a3445',
+                    }} />
+                    {/* event card */}
+                    <button
+                      onClick={() => toggle(day.key)}
+                      className="w-full text-left"
+                      style={{
+                        background: '#fffdf6', border: '2.5px solid #2a3445', borderRadius: 16,
+                        boxShadow: '0 3px 0 0 #2a3445', padding: '11px 13px',
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-display" style={{ fontWeight: 700, fontSize: 14.5, color: '#2a3445', lineHeight: 1.15 }}>
+                            {fmtDay(day.ts)}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: '#8a7a5e', marginTop: 2 }}>
+                            {count === 1 ? '1 new species' : `${count} new species`}
+                            {' · '}reached #{newest}
+                          </div>
+                        </div>
+                        <div
+                          className="shrink-0 flex items-center justify-center"
+                          style={{
+                            width: 26, height: 26, borderRadius: '50%',
+                            background: isOpen ? '#ff9a76' : '#fff8e8',
+                            border: '2px solid #2a3445', color: '#2a3445',
+                            transition: 'transform 0.15s', transform: isOpen ? 'rotate(180deg)' : 'none',
+                          }}
+                        >
+                          <ChevronDown size={14} strokeWidth={2.5} />
+                        </div>
+                      </div>
+
+                      {/* expanded species list */}
+                      {isOpen && (
+                        <div style={{ marginTop: 10, borderTop: '1.5px dashed rgba(42,52,69,0.18)', paddingTop: 8 }}>
+                          {day.species.map((s) => (
+                            <div key={s.sci} className="flex items-baseline justify-between gap-3" style={{ padding: '4px 0' }}>
+                              <span style={{ fontSize: 13.5, color: '#2a3445', fontWeight: 600 }}>
+                                {COMMON_BY_SCI[s.sci] || s.sci}
+                              </span>
+                              <span className="font-mono shrink-0" style={{ fontSize: 11, color: '#b0692e', fontWeight: 700 }}>
+                                #{s.seq}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {undatedCount > 0 && (
+          <div style={{ fontSize: 10.5, color: '#9a8a72', textAlign: 'center', marginTop: 6, fontStyle: 'italic' }}>
+            {undatedCount} species without a recorded date aren’t shown on the timeline.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 function BadgesView({ seenSci, userCount, atRiskSeen, regionNativeCount, speciesStats, usNonNativeCount, onBack }) {
   const [selected, setSelected] = useState(null); // { group, tier, unlocked, earnedDate }
