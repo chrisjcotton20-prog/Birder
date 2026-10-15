@@ -3296,8 +3296,8 @@ function parseEBirdCsv(file) {
           //   points              — [[lng, lat, speciesCount, [sciIdx,...], stateAbbr], ...]
           //                         heatmap data. [4] is eBird's 2-letter state
           //                         code for scope filtering (see stateInScope).
-          //                         [2] is the distinct-species
-          //                         COUNT at the location (kept for the "peak N
+          //                         [2] is the distinct-NATIVE-species
+          //                         COUNT at the location (drives the "peak N
           //                         at one spot" stat and back-compat); [3] is
           //                         the list of native-species indices present
           //                         there, used by the distinct-species density
@@ -3313,7 +3313,13 @@ function parseEBirdCsv(file) {
               const idx = SCI_TO_INDEX.get(s);
               if (idx !== undefined) sciIdx.push(idx);
             }
-            points.push([loc.lng, loc.lat, loc.species.size, sciIdx, loc.stateAbbr || '']);
+            // [2] is the NATIVE distinct-species count at this location — it
+            // drives the "peak N at one spot" stat and the legacy density
+            // fallback, so it must exclude non-natives (House Sparrow, European
+            // Starling, etc.) to stay consistent with the life-list count.
+            // (loc.species also holds non-natives; nativeSpecies is the subset
+            // that's on the 774 checklist.)
+            points.push([loc.lng, loc.lat, loc.nativeSpecies.size, sciIdx, loc.stateAbbr || '']);
             // Only locations with a real eBird Location ID can be queried via the API.
             // Coordinate-key locations are kept out of the tips dataset.
             if (loc.id && loc.id.startsWith('L')) {
