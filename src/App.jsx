@@ -3239,6 +3239,13 @@ function parseEBirdCsv(file) {
                     id: locId,
                     name: (r[locNameKey] && String(r[locNameKey]).trim()) || null,
                     lng, lat,
+                    // eBird's own 2-letter state/territory code for this location
+                    // (e.g. "OR"), from the US-prefixed State/Province column.
+                    // Used to filter heat points by state/region WITHOUT any
+                    // geometry test, so coastal spots and far-out spits (Montauk,
+                    // Point Reyes, Great-Lakes shores) are never mis-dropped by
+                    // the simplified map boundary. '' for non-US / unknown.
+                    stateAbbr: isUsObservation ? stateAbbr : '',
                     species: new Set(),
                     nativeSpecies: new Set(),
                   };
@@ -3286,8 +3293,10 @@ function parseEBirdCsv(file) {
           }
 
           // Outputs:
-          //   points              — [[lng, lat, speciesCount, [sciIdx,...]], ...]
-          //                         heatmap data. [2] is the distinct-species
+          //   points              — [[lng, lat, speciesCount, [sciIdx,...], stateAbbr], ...]
+          //                         heatmap data. [4] is eBird's 2-letter state
+          //                         code for scope filtering (see stateInScope).
+          //                         [2] is the distinct-species
           //                         COUNT at the location (kept for the "peak N
           //                         at one spot" stat and back-compat); [3] is
           //                         the list of native-species indices present
@@ -3304,7 +3313,7 @@ function parseEBirdCsv(file) {
               const idx = SCI_TO_INDEX.get(s);
               if (idx !== undefined) sciIdx.push(idx);
             }
-            points.push([loc.lng, loc.lat, loc.species.size, sciIdx]);
+            points.push([loc.lng, loc.lat, loc.species.size, sciIdx, loc.stateAbbr || '']);
             // Only locations with a real eBird Location ID can be queried via the API.
             // Coordinate-key locations are kept out of the tips dataset.
             if (loc.id && loc.id.startsWith('L')) {
@@ -6255,6 +6264,20 @@ const STATE_TO_REGION = {};
 for (const r of REGIONS) for (const s of r.states) STATE_TO_REGION[s] = r.id;
 const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
 
+// Does a point's eBird state code (e.g. "OR") fall within the active scope?
+// scopeStateFips set → must be exactly that state; else scopeRegion → must be a
+// member state of that region. This is the authoritative filter (eBird's own
+// per-sighting state tag), used in place of a geometry test so simplified map
+// boundaries can't drop coastal or far-out-spit locations. Returns null when
+// the point carries no state code (older stored data), so callers can fall back
+// to the geometry test.
+function stateInScope(stateAbbr, scopeRegion, scopeStateFips) {
+  if (!stateAbbr) return null; // unknown → caller falls back to geometry
+  if (scopeStateFips) return FIPS_TO_ABBR[scopeStateFips] === stateAbbr;
+  if (scopeRegion) return STATE_TO_REGION[stateAbbr] === scopeRegion;
+  return true; // national view, no filter
+}
+
 // ---- State-level (3rd zoom tier) ----
 // Regions that ARE a single state already act as a "state view" (California,
 // Alaska, Hawaii), so their states are not independently selectable. Every
@@ -6268,6 +6291,38 @@ const STATE_GEOMETRY = {};
 for (const g of statesTopo.objects.states.geometries) {
   STATE_GEOMETRY[g.id] = merge(statesTopo, [g]);
 }
+
+// Tolerant point-in-polygon test. The us-atlas boundaries are simplified, so
+// along jagged coastlines the polygon edge can cut inland of the true shore —
+// a hotspot logged right at the water's edge (e.g. an Oregon coastal viewpoint)
+// then falls a fraction of a mile OUTSIDE the simplified geometry and gets
+// dropped by a strict geoContains. This made the state view under-count coastal
+// locations (e.g. "6 locations" when eBird shows 8). Fix: if a point isn't
+// strictly inside, nudge it a short distance toward the geometry's centroid and
+// retest. A point just offshore flips to inside; a point that genuinely belongs
+// to a neighbouring state is nowhere near this polygon, so it still fails.
+// Centroids are memoized per geometry (keyed by object identity) so this stays
+// cheap across thousands of point tests per render.
+const _centroidCache = new WeakMap();
+function geoCentroidCached(geo) {
+  let c = _centroidCache.get(geo);
+  if (!c) { c = geoCentroid(geo); _centroidCache.set(geo, c); }
+  return c;
+}
+// capDeg ~0.05° ≈ 3 miles: enough to recover coastline-simplification error
+// without reaching into adjacent states.
+function containsTolerant(geo, lng, lat, capDeg = 0.05) {
+  if (geoContains(geo, [lng, lat])) return true;
+  const c = geoCentroidCached(geo);
+  const dx = c[0] - lng, dy = c[1] - lat;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  for (let d = 0.004; d <= capDeg; d += 0.004) {
+    if (geoContains(geo, [lng + ux * d, lat + uy * d])) return true;
+  }
+  return false;
+}
+
 // Is this FIPS a selectable state (i.e. sits inside a multi-state region)?
 function isSelectableState(fips) {
   const abbr = FIPS_TO_ABBR[fips];
@@ -7431,8 +7486,14 @@ function SightingsMapView({
     for (const p of points) {
       const lng = p[0], lat = p[1];
       const w = (p.length >= 3 && Number.isFinite(p[2])) ? p[2] : 1;
-      // Region filter: skip points outside the active region's geometry.
-      if (regionGeo && !geoContains(regionGeo, [lng, lat])) continue;
+      // Scope filter. Prefer eBird's own per-location state code (p[4]) — exact,
+      // no map-boundary error. Fall back to the tolerant geometry test only when
+      // the point lacks a code (data stored before this field existed).
+      if (region || stateFips) {
+        const byCode = stateInScope(p[4], region, stateFips);
+        if (byCode === false) continue;
+        if (byCode === null && regionGeo && !containsTolerant(regionGeo, lng, lat)) continue;
+      }
       const idxs = (p.length >= 4 && Array.isArray(p[3])) ? p[3] : null;
       if (idxs) for (const ix of idxs) scopedSpecies.add(ix);
       const xy = activeProj([lng, lat]);
@@ -7502,7 +7563,11 @@ function SightingsMapView({
     const regionGeo = stateFips ? STATE_GEOMETRY[stateFips]
       : (region ? REGION_GEOMETRY[region] : null);
     for (const p of points) {
-      if (regionGeo && !geoContains(regionGeo, [p[0], p[1]])) continue;
+      if (region || stateFips) {
+        const byCode = stateInScope(p[4], region, stateFips);
+        if (byCode === false) continue;
+        if (byCode === null && regionGeo && !containsTolerant(regionGeo, p[0], p[1])) continue;
+      }
       const w = (p.length >= 3 && Number.isFinite(p[2])) ? p[2] : 1;
       if (w > m) m = w;
     }
@@ -7531,7 +7596,7 @@ function SightingsMapView({
       if (!loc || !Array.isArray(loc.species) || loc.species.length === 0) continue;
       for (const r of REGIONS) {
         const geo = REGION_GEOMETRY[r.id];
-        if (geo && geoContains(geo, [loc.lng, loc.lat])) {
+        if (geo && containsTolerant(geo, loc.lng, loc.lat)) {
           if (!sets[r.id]) sets[r.id] = new Set();
           for (const s of loc.species) sets[r.id].add(s);
           break; // each location belongs to exactly one region
@@ -8157,19 +8222,6 @@ function SightingsMapView({
                   </g>
                 )}
 
-                {/* Heatmap contours, masked to a *dilated* outline so coastal
-                    and barrier-island hotspots remain visible. */}
-                <g mask="url(#us-mask)">
-                  {contours.map((c, i) => (
-                    <path
-                      key={i}
-                      d={PIXEL_PATH(c) || ''}
-                      fill={heatColor(densityT(c.value, singlePointRef))}
-                      stroke="none"
-                    />
-                  ))}
-                </g>
-
                 {/* Internal state borders — soft mint */}
                 <path
                   d={activePath(STATE_BORDERS) || ''}
@@ -8216,6 +8268,25 @@ function SightingsMapView({
                       ))}
                   </g>
                 )}
+
+                {/* Heatmap contours — drawn ABOVE the state fills, park outlines
+                    and the orange selectable-state boundaries, so hotspots read
+                    on top of the boundary lines (not hidden beneath them).
+                    Masked to a *dilated* outline so coastal and barrier-island
+                    hotspots stay visible. pointerEvents="none" so taps pass
+                    THROUGH the blobs to the clickable state fills beneath —
+                    otherwise a hotspot over a state would swallow the tap and
+                    block zooming into that region/state. */}
+                <g mask="url(#us-mask)" pointerEvents="none">
+                  {contours.map((c, i) => (
+                    <path
+                      key={i}
+                      d={PIXEL_PATH(c) || ''}
+                      fill={heatColor(densityT(c.value, singlePointRef))}
+                      stroke="none"
+                    />
+                  ))}
+                </g>
 
                 {/* Outer border for the active scope — dark mint. */}
                 <path
