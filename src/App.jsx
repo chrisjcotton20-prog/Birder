@@ -7332,6 +7332,16 @@ function SightingsMapView({
   const svgContainerRef = useRef(null);
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState(null);
+  // Desktop hover probe over the heatmap: { x, y, count } in viewport px, or
+  // null when the cursor isn't over a blob. Only enabled on devices with a real
+  // hover pointer (desktop), so touch taps never trigger it.
+  const [heatProbe, setHeatProbe] = useState(null);
+  const canHover = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(hover: hover) and (pointer: fine)').matches
+      : false,
+    []
+  );
   // Filter mode. 'all' = aggregate species count per location (the original
   // heatmap; biased toward most-birded spots). 'first' = each species's
   // first-found location, weighted by how many species you discovered there.
@@ -7509,7 +7519,7 @@ function SightingsMapView({
   // Project points to pixel space. Each point is [lng, lat, count, [sciIdx…]].
   // When zoomed to a region, points are first filtered to those inside the
   // region's geometry so the density reflects only that region's data.
-  const { contours, projectedCount, maxValue, singlePointRef, totalSpeciesAcrossLocations, totalLocations, scopedSpeciesCount } = useMemo(() => {
+  const { contours, projectedCount, maxValue, singlePointRef, totalSpeciesAcrossLocations, totalLocations, scopedSpeciesCount, densityGrid, gridW, gridH, gridCell } = useMemo(() => {
     const projected = [];
     let totalW = 0;
     const scopedSpecies = new Set(); // distinct species indices within scope
@@ -7539,7 +7549,7 @@ function SightingsMapView({
       }
     }
     if (projected.length === 0) {
-      return { contours: [], projectedCount: 0, maxValue: 0, singlePointRef: 0, totalSpeciesAcrossLocations: 0, totalLocations: 0, scopedSpeciesCount: 0 };
+      return { contours: [], projectedCount: 0, maxValue: 0, singlePointRef: 0, totalSpeciesAcrossLocations: 0, totalLocations: 0, scopedSpeciesCount: 0, densityGrid: null, gridW: 0, gridH: 0, gridCell: 2 };
     }
 
     // Bandwidth per zoom level: tighter 3.5 for the national US map, 5 for
@@ -7588,6 +7598,10 @@ function SightingsMapView({
       totalSpeciesAcrossLocations: totalW,
       totalLocations: projected.length,
       scopedSpeciesCount: scopedSpecies.size,
+      // Exposed for the desktop hover probe: the raw density grid (in grid-cell
+      // space) plus its dimensions and cell size, so a mouse position can be
+      // sampled to the distinct-species estimate at that spot.
+      densityGrid: grid, gridW: gw, gridH: gh, gridCell: CELL,
     };
   }, [points, region, stateFips, activeProj, viewBoxW, viewBoxH]);
 
@@ -7607,6 +7621,35 @@ function SightingsMapView({
     }
     return m;
   }, [points, region, stateFips]);
+
+  // Desktop heatmap hover probe. Maps the cursor to the SVG viewBox (via the
+  // element's screen CTM, which accounts for the viewBox + xMidYMid letterbox),
+  // samples the density grid at that cell, and converts it to a distinct-species
+  // estimate (grid value ÷ singlePointRef — the same scale the legend uses).
+  // Shows the floating counter only when the cursor is over a drawn blob.
+  const handleHeatMove = (e) => {
+    if (!canHover || !densityGrid || !singlePointRef) { if (heatProbe) setHeatProbe(null); return; }
+    const svg = e.currentTarget;
+    const ctm = svg.getScreenCTM && svg.getScreenCTM();
+    if (!ctm) return;
+    let vb;
+    try {
+      vb = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+    } catch { return; }
+    const gx = Math.floor(vb.x / gridCell);
+    const gy = Math.floor(vb.y / gridCell);
+    if (gx < 0 || gy < 0 || gx >= gridW || gy >= gridH) { if (heatProbe) setHeatProbe(null); return; }
+    const val = densityGrid[gy * gridW + gx] || 0;
+    const est = val / singlePointRef;
+    // The faintest drawn contour sits at ~0.3× ref; show the counter a touch
+    // above that so it only appears over a real blob, never bare background.
+    if (est >= 0.35) {
+      setHeatProbe({ x: e.clientX, y: e.clientY, count: Math.max(1, Math.round(est)) });
+    } else if (heatProbe) {
+      setHeatProbe(null);
+    }
+  };
+  const clearHeatProbe = () => { if (heatProbe) setHeatProbe(null); };
 
   // Effective native-species count per region.
   //
@@ -8130,6 +8173,8 @@ function SightingsMapView({
                 className="max-w-full max-h-full"
                 preserveAspectRatio="xMidYMid meet"
                 style={{ background: 'transparent', width: '100%', height: '100%' }}
+                onMouseMove={handleHeatMove}
+                onMouseLeave={clearHeatProbe}
               >
                 <defs>
                   {/* A *dilated* clip for the heatmap. With a strict clipPath
@@ -8333,6 +8378,25 @@ function SightingsMapView({
                 />
               </svg>
               </div>
+
+              {/* Desktop hover counter — a small pill that follows the cursor
+                  and shows the distinct-species estimate under the mouse. Only
+                  present on hover-capable devices and only while over a blob. */}
+              {heatProbe && (
+                <div
+                  style={{
+                    position: 'fixed', left: heatProbe.x + 14, top: heatProbe.y + 14,
+                    zIndex: 60, pointerEvents: 'none',
+                    background: '#2a3445', color: '#fff8e8',
+                    border: '2px solid #2a3445', borderRadius: 999,
+                    boxShadow: '0 3px 0 0 rgba(42,52,69,0.35)',
+                    padding: '4px 11px', fontFamily: 'Fredoka, sans-serif',
+                    fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
+                  }}
+                >
+                  ~{heatProbe.count} {heatProbe.count === 1 ? 'species' : 'species'} here
+                </div>
+              )}
 
               {/* Continuous gradient legend */}
               <div className="mt-2 flex items-center justify-center gap-3 flex-wrap shrink-0">
