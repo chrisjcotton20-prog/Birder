@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Papa from 'papaparse';
 import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon, ChevronLeft, ChevronRight, Share2, Plus, Download, ArrowLeftRight, Home, Lightbulb, MapPin, Calendar, Eye, Anchor, Moon, Award, Lock, Trophy, Globe, Sparkles, Waves, VenetianMask, Footprints, CalendarDays, ChevronDown } from 'lucide-react';
 import { storage } from './lib/storage.js';
@@ -8382,11 +8383,11 @@ function SightingsMapView({
               {/* Desktop hover counter — a small pill that follows the cursor
                   and shows the distinct-species estimate under the mouse. Only
                   present on hover-capable devices and only while over a blob. */}
-              {heatProbe && (
+              {heatProbe && typeof document !== 'undefined' && createPortal(
                 <div
                   style={{
                     position: 'fixed', left: heatProbe.x + 14, top: heatProbe.y + 14,
-                    zIndex: 60, pointerEvents: 'none',
+                    zIndex: 9999, pointerEvents: 'none',
                     background: '#2a3445', color: '#fff8e8',
                     border: '2px solid #2a3445', borderRadius: 999,
                     boxShadow: '0 3px 0 0 rgba(42,52,69,0.35)',
@@ -8395,7 +8396,8 @@ function SightingsMapView({
                   }}
                 >
                   ~{heatProbe.count} {heatProbe.count === 1 ? 'species' : 'species'} here
-                </div>
+                </div>,
+                document.body
               )}
 
               {/* Continuous gradient legend */}
