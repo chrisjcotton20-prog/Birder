@@ -7520,7 +7520,7 @@ function SightingsMapView({
   // Project points to pixel space. Each point is [lng, lat, count, [sciIdx…]].
   // When zoomed to a region, points are first filtered to those inside the
   // region's geometry so the density reflects only that region's data.
-  const { contours, projectedCount, maxValue, singlePointRef, totalSpeciesAcrossLocations, totalLocations, scopedSpeciesCount, densityGrid, gridW, gridH, gridCell } = useMemo(() => {
+  const { contours, projectedCount, maxValue, singlePointRef, totalSpeciesAcrossLocations, totalLocations, scopedSpeciesCount, densityGrid, gridW, gridH, gridCell, projectedPoints } = useMemo(() => {
     const projected = [];
     let totalW = 0;
     const scopedSpecies = new Set(); // distinct species indices within scope
@@ -7550,7 +7550,7 @@ function SightingsMapView({
       }
     }
     if (projected.length === 0) {
-      return { contours: [], projectedCount: 0, maxValue: 0, singlePointRef: 0, totalSpeciesAcrossLocations: 0, totalLocations: 0, scopedSpeciesCount: 0, densityGrid: null, gridW: 0, gridH: 0, gridCell: 2 };
+      return { contours: [], projectedCount: 0, maxValue: 0, singlePointRef: 0, totalSpeciesAcrossLocations: 0, totalLocations: 0, scopedSpeciesCount: 0, densityGrid: null, gridW: 0, gridH: 0, gridCell: 2, projectedPoints: [] };
     }
 
     // Bandwidth per zoom level: tighter 3.5 for the national US map, 5 for
@@ -7603,6 +7603,10 @@ function SightingsMapView({
       // space) plus its dimensions and cell size, so a mouse position can be
       // sampled to the distinct-species estimate at that spot.
       densityGrid: grid, gridW: gw, gridH: gh, gridCell: CELL,
+      // Projected in-scope locations in viewBox space ([x, y, speciesCount, …]),
+      // so the hover probe can report the nearest real location's discrete
+      // native-species count — the same per-location metric as "peak at one spot".
+      projectedPoints: projected,
     };
   }, [points, region, stateFips, activeProj, viewBoxW, viewBoxH]);
 
@@ -7642,13 +7646,20 @@ function SightingsMapView({
     if (gx < 0 || gy < 0 || gx >= gridW || gy >= gridH) { if (heatProbe) setHeatProbe(null); return; }
     const val = densityGrid[gy * gridW + gx] || 0;
     const est = val / singlePointRef;
-    // The faintest drawn contour sits at ~0.3× ref; show the counter a touch
-    // above that so it only appears over a real blob, never bare background.
-    if (est >= 0.35) {
-      setHeatProbe({ x: e.clientX, y: e.clientY, count: Math.max(1, Math.round(est)) });
-    } else if (heatProbe) {
-      setHeatProbe(null);
+    // The faintest drawn contour sits at ~0.3× ref; only show the pill when the
+    // cursor is actually over a drawn blob, never over bare background.
+    if (est < 0.35) { if (heatProbe) setHeatProbe(null); return; }
+    // Report the DISCRETE per-location metric (same as "peak at one spot"):
+    // the native-species count of the actual location nearest the cursor.
+    let best = null, bestD = Infinity;
+    for (const pp of projectedPoints) {
+      const dx = pp[0] - vb.x, dy = pp[1] - vb.y;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = pp; }
     }
+    if (!best) { if (heatProbe) setHeatProbe(null); return; }
+    const count = Math.max(1, Math.round(Number.isFinite(best[2]) ? best[2] : 1));
+    setHeatProbe({ x: e.clientX, y: e.clientY, count });
   };
   const clearHeatProbe = () => { if (heatProbe) setHeatProbe(null); };
 
@@ -8395,7 +8406,7 @@ function SightingsMapView({
                     fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
                   }}
                 >
-                  ~{heatProbe.count} {heatProbe.count === 1 ? 'species' : 'species'} here
+                  {heatProbe.count} {heatProbe.count === 1 ? 'species' : 'species'} at this spot
                 </div>,
                 document.body
               )}
