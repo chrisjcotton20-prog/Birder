@@ -8388,10 +8388,13 @@ function SightingsMapView({
                 </g>
 
                 {/* California sub-regions. In the CA region view, draw NorCal
-                    and SoCal as two clickable halves (slightly different tints)
-                    with a dashed divider, so the user can drill into either. In
-                    the sub-region view, paint just the active half green on top
-                    of the greyed CA background. */}
+                    and SoCal as two clickable halves (slightly different tints),
+                    each with a solid orange boundary — mirroring the orange
+                    selectable-state outlines in the other region views. The two
+                    outlines share the dividing edge, so the cut is shown trimmed
+                    to California's borders with no line spilling into the ocean
+                    or Nevada. In the sub-region view, paint just the active half
+                    green on top of the greyed CA background. */}
                 {region === 'cal' && !caSub && (
                   <g>
                     {['norcal', 'socal'].map((half) => (
@@ -8406,15 +8409,6 @@ function SightingsMapView({
                         <title>{CA_SUB_NAME[half]}</title>
                       </path>
                     ))}
-                    <path
-                      d={activePath(CA_DIVIDER) || ''}
-                      fill="none"
-                      stroke="#ff8a3d"
-                      strokeWidth={1.6}
-                      strokeDasharray="5,3"
-                      strokeLinecap="round"
-                      pointerEvents="none"
-                    />
                   </g>
                 )}
                 {region === 'cal' && caSub && CA_SUB_GEOMETRY[caSub] && (
@@ -8631,6 +8625,25 @@ function SightingsMapView({
                   strokeLinejoin="round"
                   pointerEvents="none"
                 />
+
+                {/* CA sub-region boundaries — orange outline around NorCal and
+                    SoCal, mirroring the selectable-state outlines in other region
+                    views. Drawn last so the shared cut (trimmed to CA) and the
+                    outer edges both read in orange, over the dark scope border. */}
+                {region === 'cal' && !caSub && (
+                  <g pointerEvents="none">
+                    {['norcal', 'socal'].map((half) => (
+                      <path
+                        key={`cabound-${half}`}
+                        d={activePath(CA_SUB_GEOMETRY[half]) || ''}
+                        fill="none"
+                        stroke="#ff8a3d"
+                        strokeWidth={1.6}
+                        strokeLinejoin="round"
+                      />
+                    ))}
+                  </g>
+                )}
               </svg>
               </div>
 
