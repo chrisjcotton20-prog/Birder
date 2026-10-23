@@ -8626,23 +8626,21 @@ function SightingsMapView({
                   pointerEvents="none"
                 />
 
-                {/* CA sub-region boundaries — orange outline around NorCal and
-                    SoCal, mirroring the selectable-state outlines in other region
-                    views. Drawn last so the shared cut (trimmed to CA) and the
-                    outer edges both read in orange, over the dark scope border. */}
+                {/* CA interior cut line — orange, mirroring how other region
+                    views show only interior divisions in orange (the outer scope
+                    boundary stays the dark mint border above). The line is
+                    clipped to California, so it runs border-to-border with
+                    nothing spilling into the ocean or Nevada. */}
                 {region === 'cal' && !caSub && (
-                  <g pointerEvents="none">
-                    {['norcal', 'socal'].map((half) => (
-                      <path
-                        key={`cabound-${half}`}
-                        d={activePath(CA_SUB_GEOMETRY[half]) || ''}
-                        fill="none"
-                        stroke="#ff8a3d"
-                        strokeWidth={1.6}
-                        strokeLinejoin="round"
-                      />
-                    ))}
-                  </g>
+                  <path
+                    d={activePath(CA_DIVIDER) || ''}
+                    fill="none"
+                    stroke="#ff8a3d"
+                    strokeWidth={1.6}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    pointerEvents="none"
+                  />
                 )}
               </svg>
               </div>
