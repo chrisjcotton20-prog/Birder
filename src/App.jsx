@@ -11,6 +11,7 @@ import statesTopo from 'us-atlas/states-10m.json';
 import NATIONAL_PARKS from './data_national_parks.json';
 import RIVERS from './data_rivers.json';
 import INTERSTATES from './data_interstates.json';
+import CA_SPLIT from './data_ca_split.json';
 
 // ============================================================================
 // THE TOTAL — derived from the ABA Checklist v8.0.7 (Jan 2021, 1,120 species)
@@ -6367,6 +6368,17 @@ for (const r of REGIONS) {
   REGION_GEOMETRY[r.id] = merge(statesTopo, geoms);
 }
 
+// California sub-regions. CA is its own (single-state) region, but it's large
+// and diverse enough to warrant a third zoom tier: USA › California › NorCal /
+// SoCal. The two halves are split along a straight line through Monterey Bay,
+// the Central Valley and Mammoth Lakes to the NV border (precomputed offline).
+const CA_SUB_GEOMETRY = {
+  norcal: { type: 'Feature', properties: {}, geometry: CA_SPLIT.norcal },
+  socal:  { type: 'Feature', properties: {}, geometry: CA_SPLIT.socal },
+};
+const CA_SUB_NAME = { norcal: 'Northern California', socal: 'Southern California' };
+const CA_DIVIDER = { type: 'Feature', properties: {}, geometry: CA_SPLIT.divider };
+
 // Borders BETWEEN different regions — these get a thicker stroke on the full
 // US view so the regions read as distinct clickable areas.
 const REGION_BORDERS = mesh(statesTopo, statesTopo.objects.states, (a, b) => {
@@ -7358,9 +7370,12 @@ function SightingsMapView({
   // Active state within a region (FIPS id; null = not drilled to a state).
   // Zoom hierarchy: !region (US) → region && !stateFips (region) → stateFips (state).
   const [stateFips, setStateFips] = useState(null);
-  // Leaving a region must also clear any drilled-in state.
-  const goToRegion = (rid) => { setRegion(rid); setStateFips(null); };
-  const goToUS = () => { setRegion(null); setStateFips(null); };
+  // California sub-region ('norcal' | 'socal' | null). Only meaningful in the
+  // California region; it is the third zoom tier for CA.
+  const [caSub, setCaSub] = useState(null);
+  // Leaving a region must also clear any drilled-in state / CA sub-region.
+  const goToRegion = (rid) => { setRegion(rid); setStateFips(null); setCaSub(null); };
+  const goToUS = () => { setRegion(null); setStateFips(null); setCaSub(null); };
   const points = (mode === 'first' ? pointsFirst : pointsAll) || [];
   const firstAvailable = Array.isArray(pointsFirst) && pointsFirst.length > 0;
 
@@ -7390,6 +7405,30 @@ function SightingsMapView({
         activeName: 'United States',
         viewBoxW: MAP_W,
         viewBoxH: MAP_H,
+      };
+    }
+
+    // ----- California sub-region view (3rd tier for CA): NorCal / SoCal.
+    // Fit the half's geometry into the shared square viewBox, same approach as
+    // the state view below.
+    if (region === 'cal' && caSub && CA_SUB_GEOMETRY[caSub]) {
+      const geo = CA_SUB_GEOMETRY[caSub];
+      const MI_PER_DEG_LAT = 69.0;
+      const FIXED_VB = 900;
+      const TARGET_MPP = 0.7;
+      const k = (MI_PER_DEG_LAT / TARGET_MPP) * (180 / Math.PI);
+      const centroid = geoCentroid(geo);
+      let p = geoAlbers().scale(k).rotate([-centroid[0], 0]).center([0, centroid[1]]).translate([0, 0]);
+      const bnd = geoPath(p).bounds(geo);
+      const cx = (bnd[0][0] + bnd[1][0]) / 2, cy = (bnd[0][1] + bnd[1][1]) / 2;
+      p = p.translate([FIXED_VB / 2 - cx, FIXED_VB / 2 - cy]);
+      return {
+        activeProj: p,
+        activePath: geoPath(p),
+        activeOutline: geo,
+        activeName: CA_SUB_NAME[caSub],
+        viewBoxW: FIXED_VB,
+        viewBoxH: FIXED_VB,
       };
     }
 
@@ -7517,7 +7556,7 @@ function SightingsMapView({
       viewBoxW: FIXED_VB,
       viewBoxH: FIXED_VB,
     };
-  }, [region, stateFips]);
+  }, [region, stateFips, caSub]);
 
   // Project points to pixel space. Each point is [lng, lat, count, [sciIdx…]].
   // When zoomed to a region, points are first filtered to those inside the
@@ -7526,17 +7565,22 @@ function SightingsMapView({
     const projected = [];
     let totalW = 0;
     const scopedSpecies = new Set(); // distinct species indices within scope
-    // Active scope geometry for point filtering: state when drilled in, else
-    // region, else null (full US = no filter).
-    const regionGeo = stateFips ? STATE_GEOMETRY[stateFips]
+    // Active scope geometry for point filtering: CA sub-region when drilled in,
+    // else state, else region, else null (full US = no filter).
+    const caSubActive = region === 'cal' && caSub && CA_SUB_GEOMETRY[caSub];
+    const regionGeo = caSubActive ? CA_SUB_GEOMETRY[caSub]
+      : stateFips ? STATE_GEOMETRY[stateFips]
       : (region ? REGION_GEOMETRY[region] : null);
     for (const p of points) {
       const lng = p[0], lat = p[1];
       const w = (p.length >= 3 && Number.isFinite(p[2])) ? p[2] : 1;
-      // Scope filter. Prefer eBird's own per-location state code (p[4]) — exact,
-      // no map-boundary error. Fall back to the tolerant geometry test only when
-      // the point lacks a code (data stored before this field existed).
-      if (region || stateFips) {
+      // Scope filter. For the CA halves the eBird state code (US-CA) can't tell
+      // them apart, so filter purely by geometry. Otherwise prefer eBird's own
+      // per-location state code (exact), falling back to the tolerant geometry
+      // test only when a point lacks a code.
+      if (caSubActive) {
+        if (!containsTolerant(regionGeo, lng, lat)) continue;
+      } else if (region || stateFips) {
         const byCode = stateInScope(p[4], region, stateFips);
         if (byCode === false) continue;
         if (byCode === null && regionGeo && !containsTolerant(regionGeo, lng, lat)) continue;
@@ -7610,15 +7654,19 @@ function SightingsMapView({
       // native-species count — the same per-location metric as "peak at one spot".
       projectedPoints: projected,
     };
-  }, [points, region, stateFips, activeProj, viewBoxW, viewBoxH]);
+  }, [points, region, stateFips, caSub, activeProj, viewBoxW, viewBoxH]);
 
   // Highest single-location diversity (useful in the header)
   const peakDiversity = useMemo(() => {
     let m = 0;
-    const regionGeo = stateFips ? STATE_GEOMETRY[stateFips]
+    const caSubActive = region === 'cal' && caSub && CA_SUB_GEOMETRY[caSub];
+    const regionGeo = caSubActive ? CA_SUB_GEOMETRY[caSub]
+      : stateFips ? STATE_GEOMETRY[stateFips]
       : (region ? REGION_GEOMETRY[region] : null);
     for (const p of points) {
-      if (region || stateFips) {
+      if (caSubActive) {
+        if (!containsTolerant(regionGeo, p[0], p[1])) continue;
+      } else if (region || stateFips) {
         const byCode = stateInScope(p[4], region, stateFips);
         if (byCode === false) continue;
         if (byCode === null && regionGeo && !containsTolerant(regionGeo, p[0], p[1])) continue;
@@ -7627,7 +7675,7 @@ function SightingsMapView({
       if (w > m) m = w;
     }
     return m;
-  }, [points, region, stateFips]);
+  }, [points, region, stateFips, caSub]);
 
   // The geographic lng/lat window currently visible. We invert the viewBox
   // corners (and edge midpoints, since an Albers view isn't a clean lng/lat
@@ -8173,6 +8221,19 @@ function SightingsMapView({
                       <ChevronRight size={9} strokeWidth={2.25} className="ink-faint" />
                       <span className="rust" style={{ fontWeight: 600 }}>{activeName}</span>
                     </>
+                  ) : caSub ? (
+                    <>
+                      <button
+                        onClick={() => setCaSub(null)}
+                        className="btn-ghost rounded-full px-2 py-0.5"
+                        style={{ fontSize: '8.5px', letterSpacing: '0.15em' }}
+                        aria-label="Zoom out to California"
+                      >
+                        {REGION_BY_ID[region]?.name || region}
+                      </button>
+                      <ChevronRight size={9} strokeWidth={2.25} className="ink-faint" />
+                      <span className="rust" style={{ fontWeight: 600 }}>{activeName}</span>
+                    </>
                   ) : (
                     <span className="rust" style={{ fontWeight: 600 }}>{activeName}</span>
                   )}
@@ -8184,7 +8245,7 @@ function SightingsMapView({
                 className="font-display ink leading-none"
                 style={{ fontWeight: 800, fontSize: 'clamp(2.75rem, 10vw, 4.25rem)', letterSpacing: '-0.02em' }}
               >
-                {stateFips ? scopedSpeciesCount : (region ? (effectiveRegionNativeCount[region] ?? 0) : (userCount ?? 0))}
+                {(stateFips || caSub) ? scopedSpeciesCount : (region ? (effectiveRegionNativeCount[region] ?? 0) : (userCount ?? 0))}
               </div>
               <div
                 className="font-display ink-faint leading-none"
@@ -8202,7 +8263,7 @@ function SightingsMapView({
                       location{totalLocations === 1 ? '' : 's'}
                     </>
                   ) : 'no first-found locations in scope'}
-                  {!region ? ' · tap a region to zoom in' : (!stateFips ? ' · tap a state to zoom in' : '')}
+                  {!region ? ' · tap a region to zoom in' : region === 'cal' ? (caSub ? '' : ' · tap a half to zoom in') : (!stateFips ? ' · tap a state to zoom in' : '')}
                 </>
               ) : (
                 <>
@@ -8217,7 +8278,7 @@ function SightingsMapView({
                       )}
                     </>
                   ) : 'no locations in scope'}
-                  {!region ? ' · tap a region to zoom in' : (!stateFips ? ' · tap a state to zoom in' : '')}
+                  {!region ? ' · tap a region to zoom in' : region === 'cal' ? (caSub ? '' : ' · tap a half to zoom in') : (!stateFips ? ' · tap a state to zoom in' : '')}
                 </>
               )}
             </p>
@@ -8277,17 +8338,27 @@ function SightingsMapView({
                     const rid = STATE_TO_REGION[abbr];
                     const inRegionView = region && !stateFips;
                     const isActiveState = stateFips === s.id;
+                    // In the CA sub-region view, CA itself is background — the
+                    // active half is painted separately below — so nothing in
+                    // this generic loop is "active".
+                    const caSubView = region === 'cal' && caSub;
                     // "in the active scope" for fill emphasis
                     const inActive = !region
                       ? true
-                      : stateFips
-                        ? isActiveState
-                        : rid === region;
+                      : caSubView
+                        ? false
+                        : stateFips
+                          ? isActiveState
+                          : rid === region;
                     // clickable: US view → any state (to its region);
-                    // region view → selectable member states (to state view)
+                    // region view → selectable member states (to state view).
+                    // CA's halves are handled by the overlay below, so the
+                    // generic CA fill is never itself clickable.
                     const clickable = !region
                       ? !!rid
-                      : (inRegionView && rid === region && isSelectableState(s.id));
+                      : region === 'cal'
+                        ? false
+                        : (inRegionView && rid === region && isSelectableState(s.id));
                     return (
                       <path
                         key={s.id}
@@ -8315,6 +8386,45 @@ function SightingsMapView({
                     />
                   )}
                 </g>
+
+                {/* California sub-regions. In the CA region view, draw NorCal
+                    and SoCal as two clickable halves (slightly different tints)
+                    with a dashed divider, so the user can drill into either. In
+                    the sub-region view, paint just the active half green on top
+                    of the greyed CA background. */}
+                {region === 'cal' && !caSub && (
+                  <g>
+                    {['norcal', 'socal'].map((half) => (
+                      <path
+                        key={`casub-${half}`}
+                        d={activePath(CA_SUB_GEOMETRY[half]) || ''}
+                        fill={half === 'norcal' ? '#c8e6c8' : '#bfe3c6'}
+                        stroke="none"
+                        onClick={() => setCaSub(half)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <title>{CA_SUB_NAME[half]}</title>
+                      </path>
+                    ))}
+                    <path
+                      d={activePath(CA_DIVIDER) || ''}
+                      fill="none"
+                      stroke="#ff8a3d"
+                      strokeWidth={1.6}
+                      strokeDasharray="5,3"
+                      strokeLinecap="round"
+                      pointerEvents="none"
+                    />
+                  </g>
+                )}
+                {region === 'cal' && caSub && CA_SUB_GEOMETRY[caSub] && (
+                  <path
+                    d={activePath(CA_SUB_GEOMETRY[caSub]) || ''}
+                    fill="#c8e6c8"
+                    stroke="none"
+                    pointerEvents="none"
+                  />
+                )}
 
                 {/* National Park outlines — only when zoomed into a region.
                     A faint dark-green stroke + very light green fill, drawn
