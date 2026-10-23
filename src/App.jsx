@@ -10,6 +10,7 @@ import { feature, mesh, merge } from 'topojson-client';
 import statesTopo from 'us-atlas/states-10m.json';
 import NATIONAL_PARKS from './data_national_parks.json';
 import RIVERS from './data_rivers.json';
+import INTERSTATES from './data_interstates.json';
 
 // ============================================================================
 // THE TOTAL — derived from the ABA Checklist v8.0.7 (Jan 2021, 1,120 species)
@@ -7628,22 +7629,16 @@ function SightingsMapView({
     return m;
   }, [points, region, stateFips]);
 
-  // Major rivers to draw when zoomed into a region or state (the national view
-  // stays clean). This is the continuous major-river set (Natural Earth 50m);
-  // we do NOT clip to the active state/region — neighbouring rivers stay visible,
-  // mirroring the greyed-out neighbouring states. The render step culls these to
-  // whatever actually lands in the visible window.
-  const scopeRivers = useMemo(() => {
-    if (!region && !stateFips) return [];
-    const tier = RIVERS.features;
-    // Cull to the geographic window actually visible. We invert the viewBox
-    // corners (and edge midpoints, since an Albers view isn't a clean lng/lat
-    // rectangle) through the active projection to get the visible lng/lat box,
-    // pad it a touch, then keep rivers whose stored bbox overlaps it. This is
-    // reliable where projected-bbox culling isn't: distant rivers that an Albers
-    // projection would distort into frame are excluded by real geography.
+  // The geographic lng/lat window currently visible. We invert the viewBox
+  // corners (and edge midpoints, since an Albers view isn't a clean lng/lat
+  // rectangle) through the active projection, then pad a touch. Used to cull
+  // both the rivers and interstates layers to what actually lands in view —
+  // reliable where projected-bbox culling isn't, since distant features an
+  // Albers projection would distort into frame are excluded by real geography.
+  const visibleWindow = useMemo(() => {
+    if (!region && !stateFips) return null;
     const inv = activeProj && activeProj.invert;
-    if (!inv) return tier;
+    if (!inv) return null;
     const pts = [
       [0, 0], [viewBoxW, 0], [0, viewBoxH], [viewBoxW, viewBoxH],
       [viewBoxW / 2, 0], [viewBoxW / 2, viewBoxH], [0, viewBoxH / 2], [viewBoxW, viewBoxH / 2],
@@ -7655,14 +7650,32 @@ function SightingsMapView({
       if (g[0] < minLng) minLng = g[0]; if (g[0] > maxLng) maxLng = g[0];
       if (g[1] < minLat) minLat = g[1]; if (g[1] > maxLat) maxLat = g[1];
     }
-    if (!Number.isFinite(minLng)) return tier;
+    if (!Number.isFinite(minLng)) return null;
     const padX = (maxLng - minLng) * 0.08 + 0.3, padY = (maxLat - minLat) * 0.08 + 0.3;
-    minLng -= padX; maxLng += padX; minLat -= padY; maxLat += padY;
-    return tier.filter((f) => {
-      const b = f.properties.bb; if (!b) return false;
-      return !(b[2] < minLng || b[0] > maxLng || b[3] < minLat || b[1] > maxLat);
-    });
+    return [minLng - padX, minLat - padY, maxLng + padX, maxLat + padY];
   }, [region, stateFips, activeProj, viewBoxW, viewBoxH]);
+
+  const cullToWindow = (features) => {
+    const w = visibleWindow;
+    if (!w) return features;
+    return features.filter((f) => {
+      const b = f.properties.bb; if (!b) return false;
+      return !(b[2] < w[0] || b[0] > w[2] || b[3] < w[1] || b[1] > w[3]);
+    });
+  };
+
+  // Major rivers / interstates to draw when zoomed into a region or state (the
+  // national view stays clean). We do NOT clip to the active state/region —
+  // neighbouring features stay visible, mirroring the greyed-out neighbouring
+  // states — just cull to the visible window.
+  const scopeRivers = useMemo(
+    () => (!region && !stateFips) ? [] : cullToWindow(RIVERS.features),
+    [region, stateFips, visibleWindow]
+  );
+  const scopeInterstates = useMemo(
+    () => (!region && !stateFips) ? [] : cullToWindow(INTERSTATES.features),
+    [region, stateFips, visibleWindow]
+  );
 
   // Desktop heatmap hover probe. Maps the cursor to the SVG viewBox (via the
   // element's screen CTM, which accounts for the viewBox + xMidYMid letterbox),
@@ -8347,6 +8360,41 @@ function SightingsMapView({
                           </path>
                         );
                       })}
+                  </g>
+                )}
+
+                {/* Major interstates — only when zoomed into a region or state.
+                    Very faint light-grey lines, drawn beneath the rivers so the
+                    two orientation layers (one natural, one man-made) read as
+                    quiet background. Same artifact guard as the other layers. */}
+                {(region || stateFips) && scopeInterstates.length > 0 && (
+                  <g pointerEvents="none">
+                    {scopeInterstates.map((road, i) => {
+                      const d = activePath(road) || '';
+                      if (!d) return null;
+                      let skip = false;
+                      try {
+                        const bb = activePath.bounds(road);
+                        const w = bb[1][0] - bb[0][0];
+                        const h = bb[1][1] - bb[0][1];
+                        if (w > viewBoxW * 8 || h > viewBoxH * 8) skip = true;
+                      } catch { skip = true; }
+                      if (skip) return null;
+                      return (
+                        <path
+                          key={`intst-${i}`}
+                          d={d}
+                          fill="none"
+                          stroke="#c3c7cd"
+                          strokeWidth={stateFips ? 0.9 : 0.75}
+                          strokeOpacity={0.7}
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                        >
+                          {road.properties.n ? <title>{road.properties.n}</title> : null}
+                        </path>
+                      );
+                    })}
                   </g>
                 )}
 
