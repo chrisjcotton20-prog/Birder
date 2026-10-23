@@ -9,6 +9,7 @@ import { contourDensity, contours as d3contours } from 'd3-contour';
 import { feature, mesh, merge } from 'topojson-client';
 import statesTopo from 'us-atlas/states-10m.json';
 import NATIONAL_PARKS from './data_national_parks.json';
+import RIVERS from './data_rivers.json';
 
 // ============================================================================
 // THE TOTAL — derived from the ABA Checklist v8.0.7 (Jan 2021, 1,120 species)
@@ -7627,6 +7628,42 @@ function SightingsMapView({
     return m;
   }, [points, region, stateFips]);
 
+  // Major rivers to draw when zoomed into a region or state (the national view
+  // stays clean). This is the continuous major-river set (Natural Earth 50m);
+  // we do NOT clip to the active state/region — neighbouring rivers stay visible,
+  // mirroring the greyed-out neighbouring states. The render step culls these to
+  // whatever actually lands in the visible window.
+  const scopeRivers = useMemo(() => {
+    if (!region && !stateFips) return [];
+    const tier = RIVERS.features;
+    // Cull to the geographic window actually visible. We invert the viewBox
+    // corners (and edge midpoints, since an Albers view isn't a clean lng/lat
+    // rectangle) through the active projection to get the visible lng/lat box,
+    // pad it a touch, then keep rivers whose stored bbox overlaps it. This is
+    // reliable where projected-bbox culling isn't: distant rivers that an Albers
+    // projection would distort into frame are excluded by real geography.
+    const inv = activeProj && activeProj.invert;
+    if (!inv) return tier;
+    const pts = [
+      [0, 0], [viewBoxW, 0], [0, viewBoxH], [viewBoxW, viewBoxH],
+      [viewBoxW / 2, 0], [viewBoxW / 2, viewBoxH], [0, viewBoxH / 2], [viewBoxW, viewBoxH / 2],
+    ];
+    let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+    for (const pt of pts) {
+      let g; try { g = inv(pt); } catch { g = null; }
+      if (!g || !Number.isFinite(g[0]) || !Number.isFinite(g[1])) continue;
+      if (g[0] < minLng) minLng = g[0]; if (g[0] > maxLng) maxLng = g[0];
+      if (g[1] < minLat) minLat = g[1]; if (g[1] > maxLat) maxLat = g[1];
+    }
+    if (!Number.isFinite(minLng)) return tier;
+    const padX = (maxLng - minLng) * 0.08 + 0.3, padY = (maxLat - minLat) * 0.08 + 0.3;
+    minLng -= padX; maxLng += padX; minLat -= padY; maxLat += padY;
+    return tier.filter((f) => {
+      const b = f.properties.bb; if (!b) return false;
+      return !(b[2] < minLng || b[0] > maxLng || b[3] < minLat || b[1] > maxLat);
+    });
+  }, [region, stateFips, activeProj, viewBoxW, viewBoxH]);
+
   // Desktop heatmap hover probe. Maps the cursor to the SVG viewBox (via the
   // element's screen CTM, which accounts for the viewBox + xMidYMid letterbox),
   // samples the density grid at that cell, and converts it to a distinct-species
@@ -8310,6 +8347,54 @@ function SightingsMapView({
                           </path>
                         );
                       })}
+                  </g>
+                )}
+
+                {/* Major rivers — only when zoomed into a region or state, to
+                    give the otherwise-blank green land some orientation. Thin
+                    soft-blue lines, drawn below the heat contours and borders so
+                    they read as background context. Projected-bbox artifacts
+                    (e.g. a river wrapping the antimeridian under the AK conic
+                    projection) are skipped the same way the parks layer does. */}
+                {(region || stateFips) && scopeRivers.length > 0 && (
+                  <g pointerEvents="none">
+                    {scopeRivers.map((riv, i) => {
+                      const d = activePath(riv) || '';
+                      if (!d) return null;
+                      let skip = false;
+                      try {
+                        const bb = activePath.bounds(riv);
+                        const w = bb[1][0] - bb[0][0];
+                        const h = bb[1][1] - bb[0][1];
+                        // Skip only true projection artifacts (e.g. the AK
+                        // antimeridian wrap, which blows up to many × the view).
+                        // Main-stem rivers legitimately extend well past a single
+                        // state, so this threshold is generous; the data itself is
+                        // already length-filtered to principal basin rivers.
+                        if (w > viewBoxW * 8 || h > viewBoxH * 8) skip = true;
+                        // Cull rivers whose projected bbox falls entirely outside
+                        // the visible viewBox — we draw every river that lands in
+                        // view (neighbouring states included), nothing further out.
+                        const pad = viewBoxW * 0.02;
+                        if (bb[1][0] < -pad || bb[1][1] < -pad ||
+                            bb[0][0] > viewBoxW + pad || bb[0][1] > viewBoxH + pad) skip = true;
+                      } catch { skip = true; }
+                      if (skip) return null;
+                      return (
+                        <path
+                          key={`river-${i}`}
+                          d={d}
+                          fill="none"
+                          stroke="#7bbcd9"
+                          strokeWidth={stateFips ? 1.3 : 1.0}
+                          strokeOpacity={1}
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                        >
+                          {riv.properties.n ? <title>{riv.properties.n} River</title> : null}
+                        </path>
+                      );
+                    })}
                   </g>
                 )}
 
