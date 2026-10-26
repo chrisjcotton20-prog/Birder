@@ -8665,21 +8665,53 @@ function SightingsMapView({
                 document.body
               )}
 
-              {/* Continuous gradient legend */}
-              <div className="mt-2 flex items-center justify-center gap-3 flex-wrap shrink-0">
-                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Few species</span>
-                <svg width="160" height="12" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
-                  <defs>
-                    <linearGradient id="legend-grad" x1="0" y1="0" x2="1" y2="0">
-                      {Array.from({ length: 21 }).map((_, i) => {
-                        const t = i / 20;
-                        return <stop key={i} offset={`${(t * 100).toFixed(0)}%`} stopColor={heatColor(t)} />;
-                      })}
-                    </linearGradient>
-                  </defs>
-                  <rect x="0" y="0" width="160" height="12" fill="url(#legend-grad)" stroke="rgba(42,52,69,0.4)" strokeWidth="0.8" rx="6" />
-                </svg>
-                <span className="font-mono text-[10px] ink-faint tracking-widest uppercase">Many species</span>
+              {/* Continuous gradient legend. The colour encodes the number of
+                  DISTINCT species in the surrounding area, from ~1 up to the
+                  saturation point (HEATMAP_SATURATION_N), beyond which it stays
+                  red. Ticks are placed at their true positions on the ramp
+                  (densityT), which is slightly non-linear, so they aren't evenly
+                  spaced. */}
+              <div className="mt-2 flex flex-col items-center gap-1 shrink-0">
+                <span className="font-mono text-[9px] ink-faint tracking-widest uppercase">Distinct species in area</span>
+                {(() => {
+                  const BARW = 180, RX = 6;
+                  const ref = singlePointRef > 0 ? singlePointRef : 1;
+                  const ticks = [1, 10, 25, HEATMAP_SATURATION_N];
+                  // The ramp's lowest fifth (t < HEATMAP_MIN_T) never occurs on
+                  // the map, so remap the bar to show only the real band
+                  // [MIN_T, 1] — this trims the near-white dead space on the left.
+                  const norm = (v) => (densityT(v * ref, ref) - HEATMAP_MIN_T) / (1 - HEATMAP_MIN_T);
+                  // Clamp ticks inside the rounded ends so the 50+ mark runs
+                  // through the centre of the fillet rather than its tangent.
+                  const xFor = (v) => Math.max(RX, Math.min(BARW - RX, norm(v) * BARW));
+                  return (
+                    <div style={{ position: 'relative', width: BARW, height: 28 }}>
+                      <svg width={BARW} height="12" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
+                        <defs>
+                          <linearGradient id="legend-grad" x1="0" y1="0" x2="1" y2="0">
+                            {Array.from({ length: 21 }).map((_, i) => {
+                              const t = i / 20;
+                              return <stop key={i} offset={`${(t * 100).toFixed(0)}%`} stopColor={heatColor(HEATMAP_MIN_T + (1 - HEATMAP_MIN_T) * t)} />;
+                            })}
+                          </linearGradient>
+                        </defs>
+                        <rect x="0" y="0" width={BARW} height="12" fill="url(#legend-grad)" stroke="rgba(42,52,69,0.4)" strokeWidth="0.8" rx={RX} />
+                        {ticks.map((v) => (
+                          <line key={`tk-${v}`} x1={xFor(v)} y1="0" x2={xFor(v)} y2="12" stroke="rgba(42,52,69,0.45)" strokeWidth="0.8" />
+                        ))}
+                      </svg>
+                      {ticks.map((v) => (
+                        <span
+                          key={`tl-${v}`}
+                          className="font-mono ink-faint"
+                          style={{ position: 'absolute', left: xFor(v), top: 14, transform: 'translateX(-50%)', fontSize: 9, whiteSpace: 'nowrap' }}
+                        >
+                          {v === HEATMAP_SATURATION_N ? `${v}+` : v}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Empty-state overlay — sits on top of the rendered map when
