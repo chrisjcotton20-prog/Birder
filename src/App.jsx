@@ -12,6 +12,7 @@ import NATIONAL_PARKS from './data_national_parks.json';
 import RIVERS from './data_rivers.json';
 import INTERSTATES from './data_interstates.json';
 import CA_SPLIT from './data_ca_split.json';
+import L48_EXCLUDE_ARR from './data_l48_exclude.json';
 
 // ============================================================================
 // THE TOTAL — derived from the ABA Checklist v8.0.7 (Jan 2021, 1,120 species)
@@ -1201,6 +1202,26 @@ const IUCN_STATUS = {
   "Gavia adamsii": "NT",  // Yellow-billed Loon
 };
 const AT_RISK_SCI = new Set(Object.keys(IUCN_STATUS));
+
+// ---- Lower-48 list ----
+// The full list is the US ABA area (774). The Lower-48 list drops species whose
+// regular (ABA code 1–3) range is restricted to Alaska and/or Hawaii — Hawaiian
+// endemics and Hawaii-breeding seabirds, plus Bering/Aleutian/high-arctic Alaska
+// specialties and Asian strays that are only regular in western AK. This is a
+// best-effort classification; the Alaska-margin and pelagic cases are the fuzzy
+// ones. L48_EXCLUDE holds the excluded scientific names; the roster is the rest.
+const L48_EXCLUDE = new Set(L48_EXCLUDE_ARR);
+const L48_ROSTER = new Set(
+  NATIVE_SPECIES.map((s) => s[1]).filter((sci) => !L48_EXCLUDE.has(sci))
+);
+const L48_TOTAL = L48_ROSTER.size;
+const L48_TOTAL_FAMILIES = (() => {
+  const fams = new Set();
+  for (const sci of L48_ROSTER) { const f = SCI_TO_FAMILY.get(sci); if (f) fams.add(f); }
+  return fams.size;
+})();
+const L48_TOTAL_AT_RISK = [...AT_RISK_SCI].filter((sci) => L48_ROSTER.has(sci)).length;
+const L48_TOTAL_CODE_3 = [...CODE_3_SCI].filter((sci) => L48_ROSTER.has(sci)).length;
 
 // Strictly-pelagic (open-water) species: order Procellariiformes — the
 // "tubenoses" (albatrosses, fulmars, gadfly petrels, shearwaters, storm-
@@ -3169,13 +3190,20 @@ function parseEBirdCsv(file) {
           // Distinct eBird checklists (Submission IDs) — a more meaningful
           // activity metric than raw observation rows, which can double-count.
           const checklistIds = new Set();
+          // Distinct checklists submitted in the Lower 48 (US states that aren't
+          // AK or HI) — powers the Lower-48 scope of the checklists stat.
+          const l48ChecklistIds = new Set();
           let earliest = null, latest = null;
           let totalObservations = 0;
 
           for (const r of usRows) {
             totalObservations++;
             const subId = r[submissionKey];
-            if (subId) checklistIds.add(subId);
+            if (subId) {
+              checklistIds.add(subId);
+              const rg0 = STATE_TO_REGION[(r[stateKey] || '').slice(3)];
+              if (rg0 && rg0 !== 'ak' && rg0 !== 'hi') l48ChecklistIds.add(subId);
+            }
             const sci = (r[sciKey] || '').trim();
             const com = r[comKey];
             const dStr = r[dateKey];
@@ -3351,6 +3379,7 @@ function parseEBirdCsv(file) {
             meta: {
               observations: totalObservations,
               checklists: checklistIds.size,
+              l48Checklists: l48ChecklistIds.size,
               earliest: earliest ? earliest.toISOString() : null,
               latest: latest ? latest.toISOString() : null,
               fileName: file.name,
@@ -3456,6 +3485,22 @@ export default function BirdLifeTracker() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [progressAnim, setProgressAnim] = useState(0);
+  // Which list the home-screen stats are scoped to: 'us' = full ABA US (774),
+  // 'l48' = Lower 48 only.
+  const [listScope, setListScope] = useState('us');
+  const isL48 = listScope === 'l48';
+  // The user's recorded species, restricted to the active list scope. In US
+  // scope it's just seenSci; in Lower-48 scope it's the intersection with the
+  // Lower-48 roster. All the species-based home stats derive from this.
+  const seenInScope = useMemo(() => {
+    if (!isL48) return seenSci;
+    const s = new Set();
+    for (const sci of seenSci) if (L48_ROSTER.has(sci)) s.add(sci);
+    return s;
+  }, [seenSci, isL48]);
+  const hasData = userCount != null;
+  const displayCount = !hasData ? null : (isL48 ? seenInScope.size : userCount);
+  const displayTotal = isL48 ? L48_TOTAL : TOTAL;
   // File-picker refs are no longer needed: the upload UI uses a <label>
   // wrapping a hidden but functional <input type="file"> so iOS Safari
   // standalone-PWA can open the picker via a native tap on the label
@@ -3652,11 +3697,11 @@ export default function BirdLifeTracker() {
 
   // animate progress bar
   useEffect(() => {
-    if (userCount == null) {
+    if (displayCount == null) {
       setProgressAnim(0);
       return;
     }
-    const target = Math.min(userCount / TOTAL, 1);
+    const target = Math.min(displayCount / displayTotal, 1);
     let raf, start;
     const dur = 1400;
     const ease = (t) => 1 - Math.pow(1 - t, 3);
@@ -3668,7 +3713,7 @@ export default function BirdLifeTracker() {
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [userCount]);
+  }, [displayCount, displayTotal]);
 
   async function onCsvFile(file) {
     if (!file) return;
@@ -3748,35 +3793,41 @@ export default function BirdLifeTracker() {
 
   // Derived stats: unique families seen, and Code 3 rare finds.
   const familiesSeen = useMemo(() => {
-    if (!seenSci || seenSci.size === 0) return 0;
+    if (!seenInScope || seenInScope.size === 0) return 0;
     const fams = new Set();
-    for (const sci of seenSci) {
+    for (const sci of seenInScope) {
       const f = SCI_TO_FAMILY.get(sci);
       if (f) fams.add(f);
     }
     return fams.size;
-  }, [seenSci]);
+  }, [seenInScope]);
 
   const code3Seen = useMemo(() => {
-    if (!seenSci || seenSci.size === 0) return 0;
+    if (!seenInScope || seenInScope.size === 0) return 0;
     let n = 0;
-    for (const sci of seenSci) if (CODE_3_SCI.has(sci)) n++;
+    for (const sci of seenInScope) if (CODE_3_SCI.has(sci)) n++;
     return n;
-  }, [seenSci]);
+  }, [seenInScope]);
 
   const atRiskSeen = useMemo(() => {
-    if (!seenSci || seenSci.size === 0) return 0;
+    if (!seenInScope || seenInScope.size === 0) return 0;
     let n = 0;
-    for (const sci of seenSci) if (AT_RISK_SCI.has(sci)) n++;
+    for (const sci of seenInScope) if (AT_RISK_SCI.has(sci)) n++;
     return n;
-  }, [seenSci]);
+  }, [seenInScope]);
 
-  const TOTAL_FAMILIES = FAMILY_BOUNDARIES.length;
-  const TOTAL_CODE_3 = CODE_3_SCI.size;
-  const TOTAL_AT_RISK = AT_RISK_SCI.size;
+  // Totals switch with the active list scope.
+  const TOTAL_FAMILIES = isL48 ? L48_TOTAL_FAMILIES : FAMILY_BOUNDARIES.length;
+  const TOTAL_CODE_3 = isL48 ? L48_TOTAL_CODE_3 : CODE_3_SCI.size;
+  const TOTAL_AT_RISK = isL48 ? L48_TOTAL_AT_RISK : AT_RISK_SCI.size;
+  // Checklists: Lower-48 scope counts only checklists submitted in the lower 48
+  // (older saved data without the field falls back to the overall count).
+  const displayChecklists = csvMeta
+    ? (isL48 ? (csvMeta.l48Checklists ?? csvMeta.checklists) : csvMeta.checklists)
+    : null;
 
-  const pct = userCount != null ? (userCount / TOTAL) * 100 : null;
-  const remaining = userCount != null ? TOTAL - userCount : null;
+  const pct = displayCount != null ? (displayCount / displayTotal) * 100 : null;
+  const remaining = displayCount != null ? displayTotal - displayCount : null;
   const empty = hydrated && userCount == null;
 
   return (
@@ -3998,6 +4049,41 @@ export default function BirdLifeTracker() {
               </p>
             </div>
           )}
+
+          {/* List-scope toggle: Full US (774) vs Lower 48. Scopes the life-list
+              counter and all the collection stats below. */}
+          {!empty && hydrated && (
+            <div className="relative mt-3 flex justify-center">
+              <div
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                  background: 'rgba(255,255,255,0.65)', border: '2px solid #2a5680',
+                  borderRadius: 999, padding: 3, boxShadow: '0 2px 0 0 #2a5680',
+                }}
+              >
+                {[['us', 'Full US · 774'], ['l48', `Lower 48 · ${L48_TOTAL}`]].map(([k, label]) => (
+                  <span
+                    key={k}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setListScope(k)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setListScope(k); } }}
+                    className="font-display"
+                    style={{
+                      fontWeight: 700, fontSize: 11,
+                      letterSpacing: '0.05em', textTransform: 'uppercase',
+                      padding: '4px 14px', borderRadius: 999, cursor: 'pointer',
+                      background: listScope === k ? '#2a5680' : 'transparent',
+                      color: listScope === k ? '#fff' : '#2a5680',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </header>
 
         {empty && (
@@ -4145,7 +4231,7 @@ export default function BirdLifeTracker() {
                 ★
               </div>
 
-              {/* "Life List" pill */}
+              {/* "Life List" pill — reflects the active scope. */}
               <div className="inline-flex" style={{ marginBottom: 10 }}>
                 <span
                   className="font-display"
@@ -4159,7 +4245,7 @@ export default function BirdLifeTracker() {
                     textShadow: '0 1px 0 #2a5680',
                   }}
                 >
-                  Life List
+                  {isL48 ? 'Life List · Lower 48' : 'Life List'}
                 </span>
               </div>
 
@@ -4177,13 +4263,13 @@ export default function BirdLifeTracker() {
                     letterSpacing: '-0.03em',
                   }}
                 >
-                  {userCount != null ? fmt(userCount) : '—'}
+                  {displayCount != null ? fmt(displayCount) : '—'}
                 </div>
                 <div
                   className="font-display"
                   style={{ fontWeight: 600, fontSize: '1.25rem', color: '#7a6a55' }}
                 >
-                  / {fmt(TOTAL)}
+                  / {fmt(displayTotal)}
                 </div>
               </div>
 
@@ -4271,7 +4357,7 @@ export default function BirdLifeTracker() {
                       Checklists
                     </div>
                     <div className="font-display" style={{ fontWeight: 700, fontSize: 24, color: '#2a3445', lineHeight: 1 }}>
-                      {csvMeta ? fmt(csvMeta.checklists ?? csvMeta.observations) : '—'}
+                      {displayChecklists != null ? fmt(displayChecklists) : '—'}
                     </div>
                   </div>
                 </div>
