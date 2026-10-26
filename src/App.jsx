@@ -7656,26 +7656,14 @@ function SightingsMapView({
     };
   }, [points, region, stateFips, caSub, activeProj, viewBoxW, viewBoxH]);
 
-  // Highest single-location diversity (useful in the header)
+  // Peak of the heat gradient: the highest distinct-species density anywhere in
+  // the current scope, read off the same density grid the colour ramp uses
+  // (max grid value ÷ singlePointRef). This is an area measure — a dense cluster
+  // of nearby hotspots reads higher than any single location's species count.
   const peakDiversity = useMemo(() => {
-    let m = 0;
-    const caSubActive = region === 'cal' && caSub && CA_SUB_GEOMETRY[caSub];
-    const regionGeo = caSubActive ? CA_SUB_GEOMETRY[caSub]
-      : stateFips ? STATE_GEOMETRY[stateFips]
-      : (region ? REGION_GEOMETRY[region] : null);
-    for (const p of points) {
-      if (caSubActive) {
-        if (!containsTolerant(regionGeo, p[0], p[1])) continue;
-      } else if (region || stateFips) {
-        const byCode = stateInScope(p[4], region, stateFips);
-        if (byCode === false) continue;
-        if (byCode === null && regionGeo && !containsTolerant(regionGeo, p[0], p[1])) continue;
-      }
-      const w = (p.length >= 3 && Number.isFinite(p[2])) ? p[2] : 1;
-      if (w > m) m = w;
-    }
-    return m;
-  }, [points, region, stateFips, caSub]);
+    if (!(singlePointRef > 0) || !(maxValue > 0)) return 0;
+    return Math.max(1, Math.round(maxValue / singlePointRef));
+  }, [maxValue, singlePointRef]);
 
   // The geographic lng/lat window currently visible. We invert the viewBox
   // corners (and edge midpoints, since an Albers view isn't a clean lng/lat
@@ -7747,16 +7735,9 @@ function SightingsMapView({
     // The faintest drawn contour sits at ~0.3× ref; only show the pill when the
     // cursor is actually over a drawn blob, never over bare background.
     if (est < 0.35) { if (heatProbe) setHeatProbe(null); return; }
-    // Report the DISCRETE per-location metric (same as "peak at one spot"):
-    // the native-species count of the actual location nearest the cursor.
-    let best = null, bestD = Infinity;
-    for (const pp of projectedPoints) {
-      const dx = pp[0] - vb.x, dy = pp[1] - vb.y;
-      const d = dx * dx + dy * dy;
-      if (d < bestD) { bestD = d; best = pp; }
-    }
-    if (!best) { if (heatProbe) setHeatProbe(null); return; }
-    const count = Math.max(1, Math.round(Number.isFinite(best[2]) ? best[2] : 1));
+    // Report the gradient value at the cursor — the distinct-species density of
+    // the surrounding area, the same measure the colour ramp and legend use.
+    const count = Math.max(1, Math.round(est));
     setHeatProbe({ x: e.clientX, y: e.clientY, count });
   };
   const clearHeatProbe = () => { if (heatProbe) setHeatProbe(null); };
@@ -8273,7 +8254,7 @@ function SightingsMapView({
                       {peakDiversity > 0 && (
                         <>
                           {' · peak '}
-                          <span className="font-mono ink" style={{ fontWeight: 600 }}>{peakDiversity}</span> at one spot
+                          <span className="font-mono ink" style={{ fontWeight: 600 }}>~{peakDiversity}</span> in one area
                         </>
                       )}
                     </>
@@ -8660,7 +8641,7 @@ function SightingsMapView({
                     fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
                   }}
                 >
-                  {heatProbe.count} {heatProbe.count === 1 ? 'species' : 'species'} at this spot
+                  ~{heatProbe.count} species in this area
                 </div>,
                 document.body
               )}
