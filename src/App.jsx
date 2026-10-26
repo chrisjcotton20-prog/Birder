@@ -4061,7 +4061,7 @@ export default function BirdLifeTracker() {
                   borderRadius: 999, padding: 3, boxShadow: '0 2px 0 0 #2a5680',
                 }}
               >
-                {[['us', 'Full US · 774'], ['l48', `Lower 48 · ${L48_TOTAL}`]].map(([k, label]) => (
+                {[['us', 'Full US'], ['l48', 'Lower 48']].map(([k, label]) => (
                   <span
                     key={k}
                     role="button"
@@ -4687,6 +4687,9 @@ export default function BirdLifeTracker() {
           locationCount={csvMeta?.locationCount || (points?.length ?? 0)}
           regionNativeCount={csvMeta?.regionNativeCount || {}}
           locations={locations || []}
+          listScope={listScope}
+          scopeUserCount={displayCount}
+          scopeTotal={displayTotal}
           onBack={() => setView('dashboard')}
         />
       )}
@@ -6471,6 +6474,19 @@ const REGION_BORDERS = mesh(statesTopo, statesTopo.objects.states, (a, b) => {
   return STATE_TO_REGION[FIPS_TO_ABBR[a.id]] !== STATE_TO_REGION[FIPS_TO_ABBR[b.id]];
 });
 
+// Lower-48 variants: the national outline and border meshes with Alaska (02) and
+// Hawaii (15) removed, so the Lower-48 national map draws no AK/HI insets at all
+// (fills, borders and outline alike).
+const L48_STATES_COLLECTION = {
+  type: 'GeometryCollection',
+  geometries: statesTopo.objects.states.geometries.filter((g) => g.id !== '02' && g.id !== '15'),
+};
+const NATION_OUTLINE_L48 = merge(statesTopo, L48_STATES_COLLECTION.geometries);
+const STATE_BORDERS_L48 = mesh(statesTopo, L48_STATES_COLLECTION, (a, b) => a !== b);
+const REGION_BORDERS_L48 = mesh(statesTopo, L48_STATES_COLLECTION, (a, b) => {
+  return STATE_TO_REGION[FIPS_TO_ABBR[a.id]] !== STATE_TO_REGION[FIPS_TO_ABBR[b.id]];
+});
+
 // Assign each National Park to a region by testing its centroid against the
 // region polygons. Parks whose centroid lands in no region (e.g. American
 // Samoa, far offshore) are dropped — they'd never appear in a regional view.
@@ -7428,8 +7444,12 @@ function SightingsMapView({
   locationCount = 0,
   regionNativeCount = {},
   locations = [],
+  listScope = 'us',
+  scopeUserCount = null,
+  scopeTotal = TOTAL,
   onBack,
 }) {
+  const isL48 = listScope === 'l48';
   const svgContainerRef = useRef(null);
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState(null);
@@ -7462,7 +7482,31 @@ function SightingsMapView({
   // Leaving a region must also clear any drilled-in state / CA sub-region.
   const goToRegion = (rid) => { setRegion(rid); setStateFips(null); setCaSub(null); };
   const goToUS = () => { setRegion(null); setStateFips(null); setCaSub(null); };
-  const points = (mode === 'first' ? pointsFirst : pointsAll) || [];
+  const rawPoints = (mode === 'first' ? pointsFirst : pointsAll) || [];
+  // In Lower-48 scope, drop Alaska/Hawaii observations entirely and restrict each
+  // location's species to the Lower-48 roster (so the heatmap, counts and peak all
+  // reflect the 693-species list). Each point is [lng, lat, count, [sciIdx…], abbr].
+  const points = useMemo(() => {
+    if (!isL48) return rawPoints;
+    const out = [];
+    for (const p of rawPoints) {
+      const rg = STATE_TO_REGION[p[4] || ''];
+      if (rg === 'ak' || rg === 'hi') continue;
+      let idxs = p[3];
+      if (Array.isArray(idxs)) {
+        idxs = idxs.filter((i) => NATIVE_SPECIES[i] && L48_ROSTER.has(NATIVE_SPECIES[i][1]));
+        if (idxs.length === 0) continue;
+        out.push([p[0], p[1], idxs.length, idxs, p[4]]);
+      } else {
+        out.push(p);
+      }
+    }
+    return out;
+  }, [rawPoints, isL48]);
+  // If the scope flips to Lower 48 while viewing Alaska or Hawaii, pop back out.
+  useEffect(() => {
+    if (isL48 && (region === 'ak' || region === 'hi')) { setRegion(null); setStateFips(null); setCaSub(null); }
+  }, [isL48, region]);
   const firstAvailable = Array.isArray(pointsFirst) && pointsFirst.length > 0;
 
   // Build the active projection AND its viewBox dimensions.
@@ -7487,7 +7531,7 @@ function SightingsMapView({
       return {
         activeProj: PROJECTION,
         activePath: PATH,
-        activeOutline: NATION_OUTLINE,
+        activeOutline: isL48 ? NATION_OUTLINE_L48 : NATION_OUTLINE,
         activeName: 'United States',
         viewBoxW: MAP_W,
         viewBoxH: MAP_H,
@@ -7642,7 +7686,7 @@ function SightingsMapView({
       viewBoxW: FIXED_VB,
       viewBoxH: FIXED_VB,
     };
-  }, [region, stateFips, caSub]);
+  }, [region, stateFips, caSub, isL48]);
 
   // Project points to pixel space. Each point is [lng, lat, count, [sciIdx…]].
   // When zoomed to a region, points are first filtered to those inside the
@@ -7841,6 +7885,22 @@ function SightingsMapView({
   // forcing another re-upload. Only the lng/lat → region lookup runs at
   // mount, and only when the parser data is missing.
   const effectiveRegionNativeCount = useMemo(() => {
+    // Lower-48 scope: count distinct roster species per region from the already
+    // roster-filtered points (the precomputed per-region sizes are US-wide).
+    if (isL48) {
+      const sets = {};
+      for (const p of points) {
+        const rg = STATE_TO_REGION[p[4] || ''];
+        if (!rg || rg === 'ak' || rg === 'hi') continue;
+        const idxs = p[3];
+        if (!Array.isArray(idxs)) continue;
+        if (!sets[rg]) sets[rg] = new Set();
+        for (const i of idxs) sets[rg].add(i);
+      }
+      const out = {};
+      for (const [id, s] of Object.entries(sets)) out[id] = s.size;
+      return out;
+    }
     if (regionNativeCount && Object.keys(regionNativeCount).length > 0) {
       return regionNativeCount;
     }
@@ -7860,7 +7920,7 @@ function SightingsMapView({
     const out = {};
     for (const [id, set] of Object.entries(sets)) out[id] = set.size;
     return out;
-  }, [regionNativeCount, locations]);
+  }, [regionNativeCount, locations, isL48, points]);
 
   // ---- Share card: 1080×1920 portrait PNG (9:16) sized for IG/Stories ----
   async function shareCard() {
@@ -7979,8 +8039,9 @@ function SightingsMapView({
       ctx.fillStyle = halo;
       ctx.fillRect(0, 0, W, H);
 
-      const count = userCount ?? 0;
-      const pct = (count / TOTAL) * 100;
+      const count = scopeUserCount ?? userCount ?? 0;
+      const shareTotal = scopeTotal;
+      const pct = (count / shareTotal) * 100;
       const cx = W / 2;
 
       // === Top-left logo: PNG bird mascot + "Birder" wordmark ===
@@ -8016,7 +8077,7 @@ function SightingsMapView({
       // "of 774 native US birds"
       ctx.font = '600 36px Fredoka, system-ui, sans-serif';
       ctx.fillStyle = '#5a4a3e';
-      ctx.fillText(`of ${TOTAL} native US birds`, cx, heroY + 345);
+      ctx.fillText(`of ${shareTotal} native ${isL48 ? "Lower 48" : "US"} birds`, cx, heroY + 345);
 
       // Orange accent line
       ctx.strokeStyle = '#ff6b6b';
@@ -8129,14 +8190,14 @@ function SightingsMapView({
         await navigator.share({
           files: [file],
           title: 'My Birder',
-          text: `${count}/${TOTAL} native US bird species · ${pct.toFixed(1)}%`,
+          text: `${count}/${shareTotal} native ${isL48 ? "Lower 48" : "US"} bird species · ${pct.toFixed(1)}%`,
         });
       } else {
         // Fallback for older iOS, desktop, or browsers without file-sharing
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `birder-${count}-of-${TOTAL}.png`;
+        a.download = `birder-${count}-of-${shareTotal}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -8312,13 +8373,13 @@ function SightingsMapView({
                 className="font-display ink leading-none"
                 style={{ fontWeight: 800, fontSize: 'clamp(2.75rem, 10vw, 4.25rem)', letterSpacing: '-0.02em' }}
               >
-                {(stateFips || caSub) ? scopedSpeciesCount : (region ? (effectiveRegionNativeCount[region] ?? 0) : (userCount ?? 0))}
+                {(stateFips || caSub) ? scopedSpeciesCount : (region ? (effectiveRegionNativeCount[region] ?? 0) : (scopeUserCount ?? userCount ?? 0))}
               </div>
               <div
                 className="font-display ink-faint leading-none"
                 style={{ fontWeight: 500, fontSize: 'clamp(1rem, 3.5vw, 1.5rem)' }}
               >
-                / {TOTAL}
+                / {scopeTotal}
               </div>
             </div>
             <p className="ink-soft text-[11px] sm:text-xs mt-2">
@@ -8403,6 +8464,8 @@ function SightingsMapView({
                   {!(region && REGION_PROJ_FN[region]) && STATES.features.map((s) => {
                     const abbr = FIPS_TO_ABBR[s.id];
                     const rid = STATE_TO_REGION[abbr];
+                    // Lower-48 scope: don't draw Alaska or Hawaii on the national map.
+                    if (isL48 && !region && (rid === 'ak' || rid === 'hi')) return null;
                     const inRegionView = region && !stateFips;
                     const isActiveState = stateFips === s.id;
                     // In the CA sub-region view, CA itself is background — the
@@ -8619,7 +8682,7 @@ function SightingsMapView({
 
                 {/* Internal state borders — soft mint */}
                 <path
-                  d={activePath(STATE_BORDERS) || ''}
+                  d={activePath(isL48 && !region ? STATE_BORDERS_L48 : STATE_BORDERS) || ''}
                   fill="none"
                   stroke="#7ab87a"
                   strokeWidth={0.7}
@@ -8631,7 +8694,7 @@ function SightingsMapView({
                     dashed so they read as distinct tap-target dividers. */}
                 {!region && (
                   <path
-                    d={activePath(REGION_BORDERS) || ''}
+                    d={activePath(isL48 ? REGION_BORDERS_L48 : REGION_BORDERS) || ''}
                     fill="none"
                     stroke="#ff9a76"
                     strokeWidth={1.4}
