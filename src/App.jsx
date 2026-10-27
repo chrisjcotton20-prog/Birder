@@ -4203,7 +4203,7 @@ export default function BirdLifeTracker() {
             <button
               type="button"
               onClick={openAllSpecies}
-              aria-label="Browse all 774 species"
+              aria-label={`Browse all ${displayTotal} species`}
               className="anim-2 relative w-full block text-center lift"
               style={{
                 background: 'linear-gradient(180deg, #fff 0%, #fff8e8 100%)',
@@ -4842,7 +4842,7 @@ export default function BirdLifeTracker() {
                 onClick={() => { openAllSpecies(); setShowSettings(false); }}
                 className="block w-full text-left px-3 py-2 rounded-lg ink-soft hover:ink hover:bg-white/5 text-sm transition-colors"
               >
-                Browse all {TOTAL} species →
+                Browse all {displayTotal} species →
               </button>
               {points && points.length > 0 && (
                 <button
@@ -5246,16 +5246,17 @@ function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restric
   const { totalInScope, seenInScope } = useMemo(() => {
     let total = 0, seen = 0;
     for (const [, sci] of NATIVE_SPECIES) {
+      if (isL48 && !L48_ROSTER.has(sci)) continue;
       if (restrictFn && !restrictFn(sci)) continue;
       total++;
       if (seenSci.has(sci)) seen++;
     }
     return { totalInScope: total, seenInScope: seen };
-  }, [seenSci, restrictFn]);
+  }, [seenSci, restrictFn, isL48]);
 
   const hideFamilyHeader = groups.length === 1; // single-family view doesn't need redundant subheader
 
-  const displayTitle = title || `The ${TOTAL}`;
+  const displayTitle = title || `The ${isL48 ? L48_TOTAL : TOTAL}`;
   const displayEyebrow = eyebrow || 'Species Index';
 
   return (
