@@ -4739,6 +4739,7 @@ export default function BirdLifeTracker() {
       {showFamilies && (
         <FamiliesDrawer
           seenSci={seenSci}
+          isL48={isL48}
           onClose={() => setShowFamilies(false)}
           onFamilyClick={(family) => openFamilyList(family)}
         />
@@ -4750,6 +4751,7 @@ export default function BirdLifeTracker() {
         <SpeciesListDrawer
           seenSci={seenSci}
           speciesStats={csvMeta?.speciesStats || {}}
+          isL48={isL48}
           onClose={() => { setShowList(false); }}
           {...(listFilter || {})}
         />
@@ -5198,7 +5200,7 @@ function SpeciesDetailCard({ species, seenSci, speciesStats, onClose }) {
 // ============================================================================
 // Species list drawer — full 774-species list with checkbox states
 // ============================================================================
-function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restrictType, restrictValue, speciesStats }) {
+function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restrictType, restrictValue, speciesStats, isL48 = false }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all'); // 'all' | 'seen' | 'unseen'
   const [selected, setSelected] = useState(null); // [common, sci] of tapped row
@@ -5222,6 +5224,7 @@ function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restric
     let currentGroup = null;
 
     for (const [common, sci] of NATIVE_SPECIES) {
+      if (isL48 && !L48_ROSTER.has(sci)) continue;
       if (restrictFn && !restrictFn(sci)) continue;
       const seen = seenSci.has(sci);
       if (filter === 'seen' && !seen) continue;
@@ -5237,7 +5240,7 @@ function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restric
       currentGroup.items.push([common, sci]);
     }
     return result;
-  }, [query, filter, seenSci, restrictFn]);
+  }, [query, filter, seenSci, restrictFn, isL48]);
 
   // Counts scoped to the restriction (so the header reflects what the user actually sees)
   const { totalInScope, seenInScope } = useMemo(() => {
@@ -5459,7 +5462,7 @@ function SpeciesListDrawer({ seenSci, onClose, title, subtitle, eyebrow, restric
 // Families drawer — lists all 81 families with seen counts; tap to drill into
 // the species list scoped to that family.
 // ============================================================================
-function FamiliesDrawer({ seenSci, onClose, onFamilyClick }) {
+function FamiliesDrawer({ seenSci, onClose, onFamilyClick, isL48 = false }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all'); // 'all' | 'started' | 'untouched'
 
@@ -5468,22 +5471,26 @@ function FamiliesDrawer({ seenSci, onClose, onFamilyClick }) {
     const totals = new Map();
     const seens = new Map();
     for (const [, sci] of NATIVE_SPECIES) {
+      if (isL48 && !L48_ROSTER.has(sci)) continue;
       const fam = SCI_TO_FAMILY.get(sci);
       if (!fam) continue;
       totals.set(fam, (totals.get(fam) || 0) + 1);
       if (seenSci.has(sci)) seens.set(fam, (seens.get(fam) || 0) + 1);
     }
-    // Iterate FAMILY_BOUNDARIES to preserve taxonomic order
+    // Iterate FAMILY_BOUNDARIES to preserve taxonomic order. In Lower-48 scope,
+    // families with no roster species (e.g. Hawaii-only families) are dropped.
     const out = [];
     for (const [, family] of FAMILY_BOUNDARIES) {
+      const total = totals.get(family) || 0;
+      if (isL48 && total === 0) continue;
       out.push({
         name: family,
-        total: totals.get(family) || 0,
+        total,
         seen: seens.get(family) || 0,
       });
     }
     return out;
-  }, [seenSci]);
+  }, [seenSci, isL48]);
 
   const totalFamilies = families.length;
   const startedFamilies = families.filter(f => f.seen > 0).length;
