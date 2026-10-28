@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Papa from 'papaparse';
 import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon, ChevronLeft, ChevronRight, Share2, Plus, Download, ArrowLeftRight, Home, Lightbulb, MapPin, Calendar, Eye, Anchor, Moon, Award, Lock, Trophy, Globe, Sparkles, Waves, VenetianMask, Footprints, CalendarDays, ChevronDown } from 'lucide-react';
@@ -6804,6 +6804,31 @@ function TimelineView({ speciesStats, onBack }) {
     if (n.has(key)) n.delete(key); else n.add(key);
     return n;
   });
+  // Measured card heights (keyed by day). Card content wraps unpredictably, so we
+  // measure the rendered boxes and re-pack from the real heights — otherwise an
+  // expanded card with wrapping species names overlaps its neighbours.
+  const cardRefs = useRef({});
+  const containerRef = useRef(null);
+  const [cardHeights, setCardHeights] = useState({});
+  const [containerW, setContainerW] = useState(0);
+  useLayoutEffect(() => {
+    const next = {};
+    for (const k in cardRefs.current) {
+      const el = cardRefs.current[k];
+      if (el) next[k] = el.offsetHeight;
+    }
+    const keys = Object.keys(next);
+    const changed = keys.length !== Object.keys(cardHeights).length
+      || keys.some((k) => cardHeights[k] !== next[k]);
+    if (changed) setCardHeights(next);
+    const w = containerRef.current ? containerRef.current.clientWidth : 0;
+    if (w && w !== containerW) setContainerW(w);
+  });
+  useEffect(() => {
+    const onResize = () => { if (containerRef.current) setContainerW(containerRef.current.clientWidth); };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const fmtDay = (ts) => new Date(ts).toLocaleDateString('en-US', {
     weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
@@ -6871,102 +6896,151 @@ function TimelineView({ speciesStats, onBack }) {
           </div>
         )}
 
-        {/* Centered vertical timeline. A single line runs down the middle with a
-            coral dot per birding day; the day's card alternates left/right. Each
-            card shows the date and how many new species were added that day, with
-            a chevron that expands the species list. Newest day is at the top.
-            Spacing is uniform (no time/progress scaling). */}
-        {days.length > 0 && (
-          <div className="anim-3" style={{ position: 'relative', paddingTop: 6, paddingBottom: 20 }}>
+        {/* Centered vertical timeline. Dots sit on a central spine at compressed
+            but time-proportional positions, so clustered days bunch up and long
+            gaps stretch. The cards are pushed out to the left/right margins and
+            packed so they never overlap; a dotted connector bends from each dot
+            out to its (possibly pushed-down) card. Newest day at the top. */}
+        {days.length > 0 && (() => {
+          const DAY = 86400000;
+          // Compressed time scale for the DOTS on the spine.
+          // MIN_DOT is set so that even in the densest cluster two consecutive
+          // same-side cards (two dot-gaps apart) can't collide — i.e. 2·MIN_DOT ≥
+          // a collapsed card's height + gap — so collapsed cards never get pushed
+          // off their dot's line and every connector stays a straight, non-
+          // overlapping horizontal. Expanding a card is the only time risers bend.
+          const TOP_PAD = 16, MIN_DOT = 36, MAX_DOT = 230, PX_PER_DAY = 4.5;
+          // Card packing (margins). COLLAPSED_H is the header height; an open card
+          // adds a line per species. HEADER_ANCHOR is where the connector meets
+          // the card (vertical centre of the header).
+          const COLLAPSED_H = 50, HEADER_ANCHOR = 25, VGAP = 8;
+          const SPINE = 50, L_INNER = 42, R_INNER = 58; // percent positions
+          const spineX = containerW / 2;
+
+          // 1) dot Y positions (compressed, proportional to real time)
+          const dotY = [];
+          let y = TOP_PAD;
+          for (let i = 0; i < days.length; i++) {
+            dotY.push(y);
+            const older = days[i + 1];
+            if (older) {
+              const gd = (days[i].ts - older.ts) / DAY;
+              y += Math.round(Math.max(MIN_DOT, Math.min(MAX_DOT, gd * PX_PER_DAY)));
+            }
+          }
+          // 2) pack cards per side so they never overlap
+          const nodes = [];
+          const lastBottom = { left: -Infinity, right: -Infinity };
+          for (let i = 0; i < days.length; i++) {
+            const side = i % 2 === 0 ? 'right' : 'left';
+            const day = days[i];
+            const open = openDays.has(day.key);
+            const count = day.species.length;
+            // Use the measured height when we have it; fall back to an estimate
+            // for the first paint before refs are read.
+            const h = cardHeights[day.key] ?? (COLLAPSED_H + (open ? (24 + count * 18 + 8) : 0));
+            const top = Math.max(dotY[i] - HEADER_ANCHOR, lastBottom[side] + VGAP);
+            lastBottom[side] = top + h;
+            nodes.push({
+              day, side, open, count,
+              running: day.species[day.species.length - 1].seq,
+              dotY: dotY[i], top,
+            });
+          }
+          const plotH = Math.max(lastBottom.left, lastBottom.right, y) + 20;
+          const DOT = 'rgba(42,52,69,0.38)';
+
+          return (
+          <div ref={containerRef} className="anim-3" style={{ position: 'relative', height: plotH }}>
             {/* center spine */}
             <div style={{
               position: 'absolute', top: 0, bottom: 0, left: '50%',
               transform: 'translateX(-50%)', width: 3,
               background: 'rgba(42,52,69,0.18)', borderRadius: 2, zIndex: 0,
             }} />
-            {days.map((day, i) => {
-              const side = i % 2 === 0 ? 'right' : 'left';
-              const open = openDays.has(day.key);
-              const count = day.species.length;
-              const running = day.species[day.species.length - 1].seq;
-              // Gentle daily scale: the gap below a day grows with how long until
-              // the next (older) day, clamped so a few-week gap reads bigger than
-              // a few-day gap without a multi-month hiatus running off the screen.
-              const DAY = 86400000, MIN_GAP = 10, MAX_GAP = 72, PX_PER_DAY = 0.85, BASE = 8;
-              const older = days[i + 1];
-              let gapBelow = 14;
-              if (older) {
-                const gd = (day.ts - older.ts) / DAY;
-                gapBelow = Math.round(Math.max(MIN_GAP, Math.min(MAX_GAP, BASE + gd * PX_PER_DAY)));
-              }
+            {/* connectors — a stepped dotted path from each dot to its card:
+                horizontal out from the spine, a vertical riser, then horizontal
+                into the card edge (two 90° bends). When the card sits level with
+                its dot the riser has zero length, so it's simply a straight line.
+                Ends at the card edge so it's never hidden under a bubble. */}
+            {spineX > 0 && (
+              <svg style={{ position: 'absolute', inset: 0, width: '100%', height: plotH, zIndex: 1, pointerEvents: 'none' }}>
+                {nodes.map((n) => {
+                  const channelX = containerW * ((n.side === 'left' ? L_INNER : R_INNER) / 100);
+                  const bubbleY = n.top + HEADER_ANCHOR;
+                  const midX = (spineX + channelX) / 2;
+                  const pts = `${spineX},${n.dotY} ${midX},${n.dotY} ${midX},${bubbleY} ${channelX},${bubbleY}`;
+                  return (
+                    <polyline key={`c-${n.day.key}`} points={pts}
+                      fill="none" stroke="rgba(42,52,69,0.4)" strokeWidth="2"
+                      strokeDasharray="1.5 4" strokeLinecap="round" strokeLinejoin="round" />
+                  );
+                })}
+              </svg>
+            )}
+            {nodes.map((n) => {
               const chevron = (
                 <ChevronDown size={14} strokeWidth={2.5} style={{
                   flexShrink: 0, color: '#8a7a5e',
-                  transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s',
+                  transform: n.open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s',
                 }} />
               );
               return (
-                <div key={day.key} style={{
-                  position: 'relative', display: 'grid',
-                  gridTemplateColumns: '1fr 1fr', columnGap: 34, marginBottom: gapBelow,
-                }}>
-                  {/* dot on the spine */}
+                <div key={n.day.key} style={{ display: 'contents' }}>
+                  {/* dot */}
                   <div style={{
-                    position: 'absolute', left: '50%', top: 19,
+                    position: 'absolute', left: '50%', top: n.dotY,
                     transform: 'translate(-50%, -50%)',
-                    width: 18, height: 18, borderRadius: '50%',
+                    width: 16, height: 16, borderRadius: '50%',
                     background: '#ff9a76', border: '3px solid #2a3445',
-                    boxShadow: '0 1px 0 0 #2a3445', zIndex: 2,
+                    boxShadow: '0 1px 0 0 #2a3445', zIndex: 3,
                   }} />
-                  {/* short connector from spine to card */}
+                  {/* card — anchored at the channel, growing toward the margin */}
                   <div style={{
-                    position: 'absolute', top: 19, height: 0, width: 17,
-                    borderTop: '2px dotted rgba(42,52,69,0.3)',
-                    transform: 'translateY(-50%)', zIndex: 1,
-                    ...(side === 'right' ? { left: '50%' } : { right: '50%' }),
-                  }} />
-                  {/* card cell — card hugs the spine side and sizes to its content
-                      so there's no empty card space on the outer edge */}
-                  <div style={{
-                    gridColumn: side === 'left' ? 1 : 2, minWidth: 0,
-                    display: 'flex', justifyContent: side === 'left' ? 'flex-end' : 'flex-start',
+                    position: 'absolute', top: n.top, maxWidth: `${L_INNER}%`, zIndex: 2,
+                    ...(n.side === 'left' ? { right: `${100 - L_INNER}%` } : { left: `${R_INNER}%` }),
                   }}>
-                    <div style={{
-                      maxWidth: '100%',
-                      background: '#fffdf6', border: '2.5px solid #2a3445',
-                      borderRadius: 14, boxShadow: '0 3px 0 0 #2a3445', overflow: 'hidden',
-                    }}>
+                    <div
+                      ref={(el) => { cardRefs.current[n.day.key] = el; }}
+                      style={{
+                        background: '#fffdf6', border: '2.5px solid #2a3445',
+                        borderRadius: 14, boxShadow: '0 3px 0 0 #2a3445', overflow: 'hidden',
+                      }}
+                    >
                       <button
-                        onClick={() => toggleDay(day.key)}
-                        aria-label={`${fmtDay(day.ts)}: ${count} new species. Toggle species list.`}
+                        onClick={() => toggleDay(n.day.key)}
+                        aria-label={`${fmtDay(n.day.ts)}: ${n.count} new species. Toggle species list.`}
                         style={{
-                          display: 'block', width: '100%', textAlign: 'left',
+                          display: 'block', width: '100%',
+                          textAlign: n.side === 'left' ? 'right' : 'left',
                           background: 'transparent', border: 'none',
-                          padding: '9px 12px', cursor: 'pointer',
+                          padding: '8px 11px', cursor: 'pointer',
                         }}
                       >
-                        <div className="font-display" style={{ fontWeight: 700, fontSize: 13, color: '#b0692e', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
-                          {fmtShort(day.ts)}
+                        <div className="font-display" style={{ fontWeight: 700, fontSize: 12.5, color: '#b0692e', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+                          {fmtShort(n.day.ts)}
                         </div>
                         <div className="font-display" style={{
-                          display: 'flex', alignItems: 'center', gap: 6, marginTop: 2,
-                          fontWeight: 600, fontSize: 13, color: '#2a3445', whiteSpace: 'nowrap',
+                          display: 'flex', alignItems: 'center', gap: 5, marginTop: 1,
+                          justifyContent: n.side === 'left' ? 'flex-end' : 'flex-start',
+                          fontWeight: 600, fontSize: 12.5, color: '#2a3445', whiteSpace: 'nowrap',
                         }}>
-                          <span>+{count} species</span>
-                          {chevron}
+                          {n.side === 'left' && chevron}
+                          <span>+{n.count} species</span>
+                          {n.side === 'right' && chevron}
                         </div>
                       </button>
-                      {open && (
+                      {n.open && (
                         <div style={{
                           borderTop: '2px dashed rgba(42,52,69,0.18)',
-                          padding: '7px 12px 9px', textAlign: 'left',
+                          padding: '7px 11px 9px', textAlign: 'left',
                         }}>
                           <div style={{ fontSize: 10, color: '#a89a7e', marginBottom: 4 }}>
-                            Reached #{running} · {fmtDay(day.ts)}
+                            Reached #{n.running} · {fmtDay(n.day.ts)}
                           </div>
-                          {day.species.map((s) => (
+                          {n.day.species.map((s) => (
                             <div key={s.sci} className="flex items-baseline justify-between gap-3" style={{ padding: '2px 0' }}>
-                              <span style={{ fontSize: 12.5, color: '#2a3445', fontWeight: 600 }}>
+                              <span style={{ fontSize: 12, color: '#2a3445', fontWeight: 600 }}>
                                 {COMMON_BY_SCI[s.sci] || s.sci}
                               </span>
                               <span className="font-mono shrink-0" style={{ fontSize: 10, color: '#b0692e', fontWeight: 700 }}>
@@ -6982,7 +7056,8 @@ function TimelineView({ speciesStats, onBack }) {
               );
             })}
           </div>
-        )}
+          );
+        })()}
 
         {undatedCount > 0 && (
           <div style={{ fontSize: 10.5, color: '#9a8a72', textAlign: 'center', marginTop: 6, fontStyle: 'italic' }}>
