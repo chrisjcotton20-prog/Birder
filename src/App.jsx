@@ -6797,11 +6797,19 @@ function TimelineView({ speciesStats, onBack }) {
     return { days: dayList, totalSpecies: entries.length, undatedCount: undated };
   }, [speciesStats]);
 
-  // Which day's dot is selected (shows its detail tooltip). null = none.
-  const [selectedKey, setSelectedKey] = useState(null);
+  // Which days are expanded (species list shown). A Set so several can be open.
+  const [openDays, setOpenDays] = useState(() => new Set());
+  const toggleDay = (key) => setOpenDays((prev) => {
+    const n = new Set(prev);
+    if (n.has(key)) n.delete(key); else n.add(key);
+    return n;
+  });
 
   const fmtDay = (ts) => new Date(ts).toLocaleDateString('en-US', {
     weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
+  });
+  const fmtShort = (ts) => new Date(ts).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
   });
 
   return (
@@ -6863,186 +6871,118 @@ function TimelineView({ speciesStats, onBack }) {
           </div>
         )}
 
-        {/* timeline SCATTER PLOT. Y = time (scrolls, scaled so long gaps
-            between lifers are felt). X = running life-list total on a FIXED
-            0→774 axis, so each dot's horizontal position shows true progress
-            toward the full checklist and the empty space to the right is the
-            runway still to go. Dot size ∝ how many new lifers that day. Tap a
-            dot for its detail bubble. Newest day is at the top. */}
-        {days.length > 0 && (() => {
-          const DAY = 86400000;
-          const PX_PER_DAY = 2.1;     // vertical time scale: ~63px per month
-          const MIN_GAP = 30;         // floor so clustered days stay separable
-          const MAX_GAP = 520;        // gentle cap so a multi-year hiatus stays scrollable
-          const TOTAL = 774;          // full native checklist — fixed x-axis max
-          const TOP_PAD = 24, BOT_PAD = 28;
-
-          // Horizontal mapping: running total → % of plot width. A left gutter
-          // (X_LEFT) keeps the smallest counts clear of the month/year labels
-          // on the far left; X_RIGHT keeps the 774 end off the right edge.
-          const X_LEFT = 15, X_RIGHT = 95;
-          const xPct = (running) => X_LEFT + (Math.min(running, TOTAL) / TOTAL) * (X_RIGHT - X_LEFT);
-          // Dot radius (px) from new-lifer count that day — sqrt so a 12-bird
-          // day reads bigger than a 1-bird day without dwarfing it.
-          const rFor = (n) => Math.max(5, Math.min(15, 4 + Math.sqrt(n) * 3));
-
-          // Lay dots top→bottom (newest first); accumulate time-proportional y.
-          const nodes = [];
-          let y = TOP_PAD;
-          for (let i = 0; i < days.length; i++) {
-            const day = days[i];
-            const count = day.species.length;
-            const running = day.species[day.species.length - 1].seq; // total after this day
-            nodes.push({ day, count, running, y, r: rFor(count) });
-            const older = days[i + 1];
-            if (older) {
-              const gapDays = (day.ts - older.ts) / DAY;
-              y += Math.max(MIN_GAP, Math.min(MAX_GAP, gapDays * PX_PER_DAY));
-            }
-          }
-          const plotH = y + BOT_PAD;
-
-          // Month / year ticks for the time (Y) axis, placed at their true
-          // vertical position between the two events they fall between.
-          const axisTicks = [];
-          for (let i = 0; i < nodes.length - 1; i++) {
-            const top = nodes[i], bot = nodes[i + 1];
-            const span = top.day.ts - bot.day.ts;
-            if (span <= 0) continue;
-            const d = new Date(bot.day.ts);
-            let m = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
-            while (m < top.day.ts) {
-              const dt = new Date(m);
-              const yy = top.y + ((top.day.ts - m) / span) * (bot.y - top.y);
-              axisTicks.push({
-                y: yy,
-                label: dt.getMonth() === 0 ? String(dt.getFullYear())
-                                           : dt.toLocaleDateString('en-US', { month: 'short' }),
-                isYear: dt.getMonth() === 0,
-              });
-              m = new Date(dt.getFullYear(), dt.getMonth() + 1, 1).getTime();
-            }
-          }
-
-          const sel = nodes.find((n) => n.day.key === selectedKey) || null;
-          // Flip the tooltip below the dot when it's near the top, so it never
-          // clips off the top of the plot.
-          const tipBelow = sel ? (sel.y < 150) : false;
-
-          return (
-          <div className="anim-3" style={{ position: 'relative', width: '100%', height: plotH }}
-               onClick={() => setSelectedKey(null)}>
-            {/* x-axis endpoint labels (progress toward 774) */}
-            <div style={{ position: 'absolute', top: 2, left: `${xPct(0)}%`, transform: 'translateX(-50%)',
-                          fontSize: 9, color: 'rgba(42,52,69,0.42)', fontFamily: 'monospace' }}>0</div>
-            <div style={{ position: 'absolute', top: 2, left: `${xPct(TOTAL)}%`, transform: 'translateX(-50%)',
-                          fontSize: 9, color: 'rgba(42,52,69,0.42)', fontFamily: 'monospace' }}>{TOTAL}</div>
-
-            {/* time-axis ticks (months / years) down the far left */}
-            {axisTicks.map((t, ti) => (
-              <div key={ti} style={{ position: 'absolute', top: t.y, left: 0, height: 0 }}>
-                <div style={{ position: 'absolute', left: 0, top: -6,
-                              fontSize: t.isYear ? 10 : 8.5,
-                              fontWeight: t.isYear ? 700 : 500,
-                              color: t.isYear ? 'rgba(42,52,69,0.5)' : 'rgba(42,52,69,0.28)',
-                              fontFamily: t.isYear ? 'Fredoka, sans-serif' : 'monospace' }}>
-                  {t.label}
-                </div>
-              </div>
-            ))}
-
-            {/* connector polyline through the dots — shows the climb rightward */}
-            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: plotH, pointerEvents: 'none' }}
-                 preserveAspectRatio="none">
-              <polyline
-                points={nodes.map((n) => `${xPct(n.running)}%,${n.y}`).join(' ')}
-                fill="none" stroke="rgba(42,52,69,0.16)" strokeWidth="2" />
-            </svg>
-
-            {/* leader lines — a faint dotted guide from the time axis (left) out
-                to each dot, so you can read exactly where (when) each dot lands
-                against the month/year markers, even though the dot is offset
-                right by its progress value. Drawn below the dots. */}
-            {nodes.map((n) => (
-              <div key={`lead-${n.day.key}`} style={{
-                position: 'absolute', top: n.y, left: 0, width: `${xPct(n.running)}%`,
-                borderTop: '1.5px dotted rgba(42,52,69,0.28)',
-                pointerEvents: 'none', zIndex: 1,
-              }} />
-            ))}
-
-            {/* dots */}
-            {nodes.map((n) => {
-              const isSel = n.day.key === selectedKey;
+        {/* Centered vertical timeline. A single line runs down the middle with a
+            coral dot per birding day; the day's card alternates left/right. Each
+            card shows the date and how many new species were added that day, with
+            a chevron that expands the species list. Newest day is at the top.
+            Spacing is uniform (no time/progress scaling). */}
+        {days.length > 0 && (
+          <div className="anim-3" style={{ position: 'relative', paddingTop: 6, paddingBottom: 20 }}>
+            {/* center spine */}
+            <div style={{
+              position: 'absolute', top: 0, bottom: 0, left: '50%',
+              transform: 'translateX(-50%)', width: 3,
+              background: 'rgba(42,52,69,0.18)', borderRadius: 2, zIndex: 0,
+            }} />
+            {days.map((day, i) => {
+              const side = i % 2 === 0 ? 'right' : 'left';
+              const open = openDays.has(day.key);
+              const count = day.species.length;
+              const running = day.species[day.species.length - 1].seq;
+              // Gentle daily scale: the gap below a day grows with how long until
+              // the next (older) day, clamped so a few-week gap reads bigger than
+              // a few-day gap without a multi-month hiatus running off the screen.
+              const DAY = 86400000, MIN_GAP = 10, MAX_GAP = 72, PX_PER_DAY = 0.85, BASE = 8;
+              const older = days[i + 1];
+              let gapBelow = 14;
+              if (older) {
+                const gd = (day.ts - older.ts) / DAY;
+                gapBelow = Math.round(Math.max(MIN_GAP, Math.min(MAX_GAP, BASE + gd * PX_PER_DAY)));
+              }
+              const chevron = (
+                <ChevronDown size={14} strokeWidth={2.5} style={{
+                  flexShrink: 0, color: '#8a7a5e',
+                  transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s',
+                }} />
+              );
               return (
-                <button
-                  key={n.day.key}
-                  onClick={(e) => { e.stopPropagation(); setSelectedKey(isSel ? null : n.day.key); }}
-                  aria-label={`${n.count} new on ${fmtDay(n.day.ts)}, reached ${n.running}`}
-                  style={{
-                    position: 'absolute', left: `${xPct(n.running)}%`, top: n.y,
+                <div key={day.key} style={{
+                  position: 'relative', display: 'grid',
+                  gridTemplateColumns: '1fr 1fr', columnGap: 34, marginBottom: gapBelow,
+                }}>
+                  {/* dot on the spine */}
+                  <div style={{
+                    position: 'absolute', left: '50%', top: 19,
                     transform: 'translate(-50%, -50%)',
-                    width: n.r * 2, height: n.r * 2, borderRadius: '50%',
-                    background: isSel ? '#2a3445' : '#ff9a76',
-                    border: '2px solid #2a3445',
-                    boxShadow: isSel ? '0 0 0 3px rgba(255,154,118,0.55)' : '0 1px 0 0 #2a3445',
-                    padding: 0, cursor: 'pointer', zIndex: isSel ? 6 : 2,
-                  }}
-                />
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: '#ff9a76', border: '3px solid #2a3445',
+                    boxShadow: '0 1px 0 0 #2a3445', zIndex: 2,
+                  }} />
+                  {/* short connector from spine to card */}
+                  <div style={{
+                    position: 'absolute', top: 19, height: 0, width: 17,
+                    borderTop: '2px dotted rgba(42,52,69,0.3)',
+                    transform: 'translateY(-50%)', zIndex: 1,
+                    ...(side === 'right' ? { left: '50%' } : { right: '50%' }),
+                  }} />
+                  {/* card cell — card hugs the spine side and sizes to its content
+                      so there's no empty card space on the outer edge */}
+                  <div style={{
+                    gridColumn: side === 'left' ? 1 : 2, minWidth: 0,
+                    display: 'flex', justifyContent: side === 'left' ? 'flex-end' : 'flex-start',
+                  }}>
+                    <div style={{
+                      maxWidth: '100%',
+                      background: '#fffdf6', border: '2.5px solid #2a3445',
+                      borderRadius: 14, boxShadow: '0 3px 0 0 #2a3445', overflow: 'hidden',
+                    }}>
+                      <button
+                        onClick={() => toggleDay(day.key)}
+                        aria-label={`${fmtDay(day.ts)}: ${count} new species. Toggle species list.`}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          background: 'transparent', border: 'none',
+                          padding: '9px 12px', cursor: 'pointer',
+                        }}
+                      >
+                        <div className="font-display" style={{ fontWeight: 700, fontSize: 13, color: '#b0692e', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+                          {fmtShort(day.ts)}
+                        </div>
+                        <div className="font-display" style={{
+                          display: 'flex', alignItems: 'center', gap: 6, marginTop: 2,
+                          fontWeight: 600, fontSize: 13, color: '#2a3445', whiteSpace: 'nowrap',
+                        }}>
+                          <span>+{count} species</span>
+                          {chevron}
+                        </div>
+                      </button>
+                      {open && (
+                        <div style={{
+                          borderTop: '2px dashed rgba(42,52,69,0.18)',
+                          padding: '7px 12px 9px', textAlign: 'left',
+                        }}>
+                          <div style={{ fontSize: 10, color: '#a89a7e', marginBottom: 4 }}>
+                            Reached #{running} · {fmtDay(day.ts)}
+                          </div>
+                          {day.species.map((s) => (
+                            <div key={s.sci} className="flex items-baseline justify-between gap-3" style={{ padding: '2px 0' }}>
+                              <span style={{ fontSize: 12.5, color: '#2a3445', fontWeight: 600 }}>
+                                {COMMON_BY_SCI[s.sci] || s.sci}
+                              </span>
+                              <span className="font-mono shrink-0" style={{ fontSize: 10, color: '#b0692e', fontWeight: 700 }}>
+                                #{s.seq}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               );
             })}
-
-            {/* detail tooltip for the selected dot — centered horizontally in
-                the plot, above the dot (or below if the dot is near the top) */}
-            {sel && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: 'absolute', left: '50%',
-                  top: tipBelow ? (sel.y + sel.r + 12) : (sel.y - sel.r - 12),
-                  transform: tipBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
-                  width: 'min(300px, 94%)', zIndex: 10,
-                  background: '#fffdf6', border: '2.5px solid #2a3445', borderRadius: 16,
-                  boxShadow: '0 5px 0 0 #2a3445, 0 14px 30px rgba(0,0,0,0.18)',
-                  padding: '11px 13px',
-                }}
-              >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="font-display" style={{ fontWeight: 700, fontSize: 14, color: '#2a3445', lineHeight: 1.2 }}>
-                    {sel.count === 1 ? '1 new lifer' : `${sel.count} new lifers`}
-                    {', '}Reached {sel.running}
-                  </div>
-                  <button onClick={() => setSelectedKey(null)} aria-label="Close"
-                    style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff8e8',
-                             border: '2px solid #2a3445', color: '#2a3445', display: 'flex',
-                             alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <X size={12} strokeWidth={2.5} />
-                  </button>
-                </div>
-                <div style={{ fontSize: 10.5, color: '#a89a7e', marginBottom: 6 }}>{fmtDay(sel.day.ts)}</div>
-                <div style={{ borderTop: '1.5px dashed rgba(42,52,69,0.18)', paddingTop: 6, maxHeight: 190, overflowY: 'auto' }}>
-                  {sel.day.species.map((s) => (
-                    <div key={s.sci} className="flex items-baseline justify-between gap-3" style={{ padding: '3px 0' }}>
-                      <span style={{ fontSize: 13, color: '#2a3445', fontWeight: 600 }}>
-                        {COMMON_BY_SCI[s.sci] || s.sci}
-                      </span>
-                      <span className="font-mono shrink-0" style={{ fontSize: 10.5, color: '#b0692e', fontWeight: 700 }}>
-                        #{s.seq}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                {/* pointer tail */}
-                <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%) rotate(45deg)',
-                              width: 14, height: 14, background: '#fffdf6',
-                              ...(tipBelow
-                                ? { top: -8, borderLeft: '2.5px solid #2a3445', borderTop: '2.5px solid #2a3445' }
-                                : { bottom: -8, borderRight: '2.5px solid #2a3445', borderBottom: '2.5px solid #2a3445' }) }} />
-              </div>
-            )}
           </div>
-          );
-        })()}
+        )}
 
         {undatedCount > 0 && (
           <div style={{ fontSize: 10.5, color: '#9a8a72', textAlign: 'center', marginTop: 6, fontStyle: 'italic' }}>
