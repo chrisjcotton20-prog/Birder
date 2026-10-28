@@ -7035,9 +7035,32 @@ function TimelineView({ speciesStats, onBack }) {
                           borderTop: '2px dashed rgba(42,52,69,0.18)',
                           padding: '7px 11px 9px', textAlign: 'left',
                         }}>
-                          <div style={{ fontSize: 10, color: '#a89a7e', marginBottom: 4 }}>
-                            Reached #{n.running} · {fmtDay(n.day.ts)}
+                          <div style={{ fontSize: 11, color: '#2a3445', fontWeight: 700 }}>
+                            Reached #{n.running}
                           </div>
+                          <div style={{ fontSize: 10.5, color: '#a89a7e', marginTop: 1 }}>
+                            {fmtDay(n.day.ts)}
+                          </div>
+                          {(() => {
+                            const order = REGIONS.map((r) => r.id);
+                            const regs = new Set();
+                            for (const sp of n.day.species) {
+                              const st = speciesStats[sp.sci];
+                              if (st && Array.isArray(st.regions)) for (const r of st.regions) regs.add(r);
+                            }
+                            const list = [...regs].filter((id) => REGION_BY_ID[id]).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+                            if (list.length === 0) return null;
+                            return (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, margin: '6px 0 2px' }}>
+                                {list.map((id) => (
+                                  <span key={id} style={{ fontSize: 10, fontWeight: 600, color: '#16323f', background: '#cfe8f5', border: '1.5px solid #2a3445', borderRadius: 999, padding: '2px 8px' }}>
+                                    {REGION_BY_ID[id].name}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                          <div style={{ marginTop: 6 }} />
                           {n.day.species.map((s) => (
                             <div key={s.sci} className="flex items-baseline justify-between gap-3" style={{ padding: '2px 0' }}>
                               <span style={{ fontSize: 12, color: '#2a3445', fontWeight: 600 }}>
