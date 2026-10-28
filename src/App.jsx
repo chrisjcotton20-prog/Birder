@@ -3238,10 +3238,15 @@ function parseEBirdCsv(file) {
                 nativeSci.add(baseSci);
                 // per-species personal stats: count this sighting, note region
                 let ps = perSpeciesStats.get(baseSci);
-                if (!ps) { ps = { sightings: 0, locIds: new Set(), firstTs: null, regions: new Set() }; perSpeciesStats.set(baseSci, ps); }
+                if (!ps) { ps = { sightings: 0, locIds: new Set(), firstTs: null, firstRegion: null, regions: new Set() }; perSpeciesStats.set(baseSci, ps); }
                 ps.sightings++;
                 if (regionId) ps.regions.add(regionId);
-                if (dtValid) { const ts = dt.getTime(); if (ps.firstTs == null || ts < ps.firstTs) ps.firstTs = ts; }
+                // Track the region of the EARLIEST-dated sighting (the lifer
+                // sighting) so the timeline can show just that day's region.
+                if (dtValid) {
+                  const ts = dt.getTime();
+                  if (ps.firstTs == null || ts < ps.firstTs) { ps.firstTs = ts; ps.firstRegion = regionId || null; }
+                }
                 if (regionId) {
                   let set = speciesByRegion.get(regionId);
                   if (!set) { set = new Set(); speciesByRegion.set(regionId, set); }
@@ -3401,6 +3406,7 @@ function parseEBirdCsv(file) {
               speciesStats: Object.fromEntries(
                 Array.from(perSpeciesStats, ([sci, ps]) => [sci, {
                   n: ps.sightings,
+                  firstRegion: ps.firstRegion || null,
                   loc: ps.locIds.size,
                   first: ps.firstTs != null ? new Date(ps.firstTs).toISOString() : null,
                   regions: Array.from(ps.regions),
@@ -7046,7 +7052,9 @@ function TimelineView({ speciesStats, onBack }) {
                             const regs = new Set();
                             for (const sp of n.day.species) {
                               const st = speciesStats[sp.sci];
-                              if (st && Array.isArray(st.regions)) for (const r of st.regions) regs.add(r);
+                              // Only the region of THIS day's (first) sighting, not
+                              // every region the species has ever been seen in.
+                              if (st && st.firstRegion) regs.add(st.firstRegion);
                             }
                             const list = [...regs].filter((id) => REGION_BY_ID[id]).sort((a, b) => order.indexOf(a) - order.indexOf(b));
                             if (list.length === 0) return null;
