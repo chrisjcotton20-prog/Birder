@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Papa from 'papaparse';
+import JSZip from 'jszip';
 import { Upload, RefreshCw, Settings, AlertCircle, Check, X, FileText, Feather, List, Search, Square, CheckSquare, Map as MapIcon, ChevronLeft, ChevronRight, Share2, Plus, Download, ArrowLeftRight, Home, Lightbulb, MapPin, Calendar, Eye, Anchor, Moon, Award, Lock, Trophy, Globe, Sparkles, Waves, VenetianMask, Footprints, CalendarDays, ChevronDown } from 'lucide-react';
 import { storage } from './lib/storage.js';
 import { BluebirdMascot, Cardinal, Cloud, Sparkle, Compass, TreeIcon, HeartIcon, EyeIcon, CalendarIcon, ChecklistIcon, CURRENT_MASCOT } from './Illustrations.jsx';
@@ -3123,6 +3124,37 @@ async function setCachedHistoric(locId, dateStr, data) {
 }
 
 // ---------- CSV parsing ----------
+// eBird's "Download My Data" delivers a .zip containing MyEBirdData.csv.
+// Accept the raw zip and pull the CSV out in-browser so users don't have to
+// unzip it themselves. A plain .csv is passed straight through.
+async function extractEBirdCsv(file) {
+  if (!file) throw new Error('No file');
+  const name = (file.name || '').toLowerCase();
+  const isZip =
+    name.endsWith('.zip') ||
+    file.type === 'application/zip' ||
+    file.type === 'application/x-zip-compressed';
+  if (!isZip) return file; // already a CSV (or text) — Papa handles it
+
+  const zip = await JSZip.loadAsync(file);
+  const entries = Object.values(zip.files).filter((f) => !f.dir);
+  // Prefer MyEBirdData.csv, else any .csv in the archive.
+  const match =
+    entries.find((f) => /myebirddata\.csv$/i.test(f.name)) ||
+    entries.find((f) => /\.csv$/i.test(f.name));
+  if (!match) throw new Error('No CSV found in zip');
+  const text = await match.async('string');
+  // Hand Papa a File-like Blob so downstream fileName logic still works.
+  const base = match.name.split('/').pop() || 'MyEBirdData.csv';
+  try {
+    return new File([text], base, { type: 'text/csv' });
+  } catch {
+    const blob = new Blob([text], { type: 'text/csv' });
+    blob.name = base;
+    return blob;
+  }
+}
+
 function parseEBirdCsv(file) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
@@ -3713,7 +3745,8 @@ export default function BirdLifeTracker() {
         for (const handle of launchParams.files) {
           try {
             const file = await handle.getFile();
-            if (file && file.name.toLowerCase().endsWith('.csv')) {
+            const n = file && file.name.toLowerCase();
+            if (n && (n.endsWith('.csv') || n.endsWith('.zip'))) {
               await onCsvFile(file);
               break;
             }
@@ -3749,7 +3782,8 @@ export default function BirdLifeTracker() {
     setLoading(true);
     setError(null);
     try {
-      const { count, allCount, seenSci: nextSeen, points: nextPoints, firstSightingPoints: nextFirstSightingPoints, locations: nextLocations, meta } = await parseEBirdCsv(file);
+      const csvFile = await extractEBirdCsv(file);
+      const { count, allCount, seenSci: nextSeen, points: nextPoints, firstSightingPoints: nextFirstSightingPoints, locations: nextLocations, meta } = await parseEBirdCsv(csvFile);
       const seenSet = new Set(nextSeen);
       setUserCount(count);
       setCsvMeta(meta);
@@ -3767,7 +3801,7 @@ export default function BirdLifeTracker() {
       const extraNote = extra > 0 ? ` (${extra} non-native or rare visitor${extra === 1 ? '' : 's'} excluded)` : '';
       setSuccess(`Counted ${count.toLocaleString()} of ${TOTAL} native species${extraNote}.`);
     } catch (e) {
-      setError("Couldn't read that file. Make sure it's the MyEBirdData.csv export from My eBird → Download My Data.");
+      setError("Couldn't read that file. Upload the .zip (or MyEBirdData.csv) from My eBird → Download My Data.");
     } finally {
       setLoading(false);
     }
@@ -4146,7 +4180,7 @@ export default function BirdLifeTracker() {
                 <h3 className="font-display text-lg ink mb-2" style={{ fontWeight: 600 }}>Your sightings</h3>
                 <p className="text-sm ink-soft mb-5 leading-relaxed">
                   At <span className="font-mono text-xs ink">ebird.org</span>: My eBird → Download My Data.
-                  You'll be emailed a CSV — upload it here.
+                  You'll be emailed a <span className="font-mono text-xs ink">.zip</span> — upload it straight here, no need to unzip it first.
                 </p>
                 {/* Upload CSV — uses an "input overlay" pattern. The file
                     input sits as a fully-transparent layer ON TOP of a
@@ -4171,7 +4205,7 @@ export default function BirdLifeTracker() {
                   </span>
                   <input
                     type="file"
-                    accept=".csv,text/csv,text/plain,application/vnd.ms-excel"
+                    accept=".csv,.zip,text/csv,text/plain,application/vnd.ms-excel,application/zip,application/x-zip-compressed"
                     onChange={(e) => { onCsvFile(e.target.files?.[0]); e.target.value = ''; }}
                     disabled={loading}
                     aria-label="Upload CSV"
@@ -4683,7 +4717,7 @@ export default function BirdLifeTracker() {
                   </span>
                   <input
                     type="file"
-                    accept=".csv,text/csv,text/plain,application/vnd.ms-excel"
+                    accept=".csv,.zip,text/csv,text/plain,application/vnd.ms-excel,application/zip,application/x-zip-compressed"
                     onChange={(e) => { onCsvFile(e.target.files?.[0]); e.target.value = ''; }}
                     disabled={loading}
                     aria-label="Re-upload CSV"
@@ -4825,7 +4859,7 @@ export default function BirdLifeTracker() {
               <span className="font-mono text-[10px] ink-faint tracking-widest uppercase block mb-2">Re-upload CSV</span>
               <input
                 type="file"
-                accept=".csv,text/csv,text/plain,application/vnd.ms-excel"
+                accept=".csv,.zip,text/csv,text/plain,application/vnd.ms-excel,application/zip,application/x-zip-compressed"
                 className="text-xs ink-soft block w-full file:mr-3 file:px-3 file:py-1.5 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#ff6b6b] file:text-white file:cursor-pointer hover:file:bg-[#ff8888]"
                 onChange={(e) => { onCsvFile(e.target.files?.[0]); e.target.value = ''; }}
               />
