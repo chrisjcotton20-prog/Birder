@@ -3757,6 +3757,42 @@ export default function BirdLifeTracker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Web Share Target: if the user shared the eBird export into Birder, the service
+  // worker (share-target-sw.js) stashed the file in the 'birder-share' cache and
+  // redirected here. Pull it out, import it, then clear the cache + the ?shared flag.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!('caches' in window)) return;
+      try {
+        const cache = await caches.open('birder-share');
+        const res = await cache.match('/__shared-import');
+        if (!res) return;
+        const blob = await res.blob();
+        const rawName = res.headers.get('x-filename');
+        const name = rawName ? decodeURIComponent(rawName) : 'MyEBirdData';
+        await cache.delete('/__shared-import');
+        if (cancelled) return;
+        let file;
+        try {
+          file = new File([blob], name, { type: blob.type });
+        } catch {
+          file = blob;
+          file.name = name;
+        }
+        await onCsvFile(file);
+      } catch {}
+      // Tidy the URL so a refresh doesn't look like a share.
+      try {
+        if (new URLSearchParams(window.location.search).has('shared')) {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // animate progress bar
   useEffect(() => {
     if (displayCount == null) {
