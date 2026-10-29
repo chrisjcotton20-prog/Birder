@@ -1377,6 +1377,7 @@ const BADGE_GROUPS = [
       { key: 'pelagic',     name: 'Sea Legs',            desc: 'See your first pelagic species',     icon: 'waves',     accent: '#1f7ab0' },
       { key: 'nocturnal',   name: 'Night Owl',           desc: 'See your first nocturnal species',    icon: 'moonstars', accent: '#3b3270' },
       { key: 'specialized', name: 'Off the Beaten Path', desc: 'See your first specialized species',  icon: 'boot',      accent: '#c2622a' },
+      { key: 'outoftowner', name: 'Out-of-Towner',       desc: 'Record a bird outside its range',      icon: 'mappin',    accent: '#2e8b78' },
       { key: 'fowlplay',    name: 'Fowl Play',           desc: '10 non-native species in the US',     icon: 'mask',      accent: '#ff6b6b' },
     ],
   },
@@ -3507,6 +3508,28 @@ export default function BirdLifeTracker() {
   const hasData = userCount != null;
   const displayCount = !hasData ? null : (isL48 ? seenInScope.size : userCount);
   const displayTotal = isL48 ? L48_TOTAL : TOTAL;
+
+  // "On this date" callback: a lifer first found on today's month/day in an
+  // earlier year. Random pick when several qualify (chosen once per data load).
+  const onThisDay = useMemo(() => {
+    const ss = csvMeta && csvMeta.speciesStats;
+    if (!ss) return null;
+    const now = new Date();
+    const m = now.getMonth(), d = now.getDate(), yr = now.getFullYear();
+    const matches = [];
+    for (const sci in ss) {
+      const iso = ss[sci] && ss[sci].first;
+      if (!iso) continue;
+      const dt = new Date(iso);
+      if (isNaN(dt.getTime())) continue;
+      if (dt.getMonth() === m && dt.getDate() === d && dt.getFullYear() < yr) {
+        matches.push({ sci, year: dt.getFullYear() });
+      }
+    }
+    if (matches.length === 0) return null;
+    const pick = matches[Math.floor(Math.random() * matches.length)];
+    return { name: COMMON_BY_SCI[pick.sci] || pick.sci, year: pick.year };
+  }, [csvMeta]);
   // File-picker refs are no longer needed: the upload UI uses a <label>
   // wrapping a hidden but functional <input type="file"> so iOS Safari
   // standalone-PWA can open the picker via a native tap on the label
@@ -4049,10 +4072,17 @@ export default function BirdLifeTracker() {
                 borderRadius: 12,
               }}
             >
-              <Sparkle size={18} className="flex-shrink-0" />
-              <p className="font-display text-xs sm:text-sm" style={{ fontWeight: 500, color: '#2a5680' }}>
-                Hey! Latest entry was {fmtDate(csvMeta.latest)}.
-              </p>
+              <Sparkle size={18} className="flex-shrink-0" style={{ marginTop: 1, alignSelf: 'flex-start' }} />
+              <div>
+                <p className="font-display text-xs sm:text-sm" style={{ fontWeight: 500, color: '#2a5680' }}>
+                  Your latest checklist was {fmtDate(csvMeta.latest)}.
+                </p>
+                {onThisDay && (
+                  <p className="font-display text-xs sm:text-sm" style={{ fontWeight: 500, color: '#2a5680', marginTop: 2, opacity: 0.9 }}>
+                    On this date in {onThisDay.year} you found a {onThisDay.name}.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -6761,6 +6791,7 @@ function BadgeIcon({ name, size = 22, color }) {
   }
   // single hiking-boot tread imprint → lucide Footprints (clean library icon)
   if (name === 'boot') return <Footprints {...props} />;
+  if (name === 'mappin') return <MapPin {...props} />;
   return <Trophy {...props} />;
 }
 
@@ -7052,9 +7083,13 @@ function TimelineView({ speciesStats, onBack }) {
                             const regs = new Set();
                             for (const sp of n.day.species) {
                               const st = speciesStats[sp.sci];
-                              // Only the region of THIS day's (first) sighting, not
-                              // every region the species has ever been seen in.
-                              if (st && st.firstRegion) regs.add(st.firstRegion);
+                              if (!st) continue;
+                              // Prefer the region of THIS day's (first) sighting.
+                              // Fall back to the species' full region set only for
+                              // data saved before firstRegion existed (re-upload the
+                              // CSV to get the exact per-sighting region).
+                              if (st.firstRegion) regs.add(st.firstRegion);
+                              else if (Array.isArray(st.regions)) for (const r of st.regions) regs.add(r);
                             }
                             const list = [...regs].filter((id) => REGION_BY_ID[id]).sort((a, b) => order.indexOf(a) - order.indexOf(b));
                             if (list.length === 0) return null;
@@ -7125,6 +7160,16 @@ function BadgesView({ seenSci, userCount, atRiskSeen, regionNativeCount, species
       if (!specialized && isSpecializedSci(sci)) specialized = true;
       if (pelagic && nocturnal && specialized) break;
     }
+    // Out-of-Towner: any species recorded in a region outside its known range.
+    let outoftowner = false;
+    const ssRange = speciesStats || {};
+    for (const sci of seenSci) {
+      const range = SPECIES_RANGE[sci];
+      if (!range || range.length === 0) continue;
+      const st = ssRange[sci];
+      const regs = st && Array.isArray(st.regions) ? st.regions : [];
+      if (regs.some((r) => r && !range.includes(r))) { outoftowner = true; break; }
+    }
     return {
       speciesCount: userCount || 0,
       regionCount: regionSet.size,
@@ -7135,11 +7180,11 @@ function BadgesView({ seenSci, userCount, atRiskSeen, regionNativeCount, species
       threatenedCount: atRiskSeen || 0,
       usNonNativeCount: usNonNativeCount || 0,
       traits: {
-        pelagic, nocturnal, specialized,
+        pelagic, nocturnal, specialized, outoftowner,
         fowlplay: (usNonNativeCount || 0) >= FOWL_PLAY_THRESHOLD,
       },
     };
-  }, [seenSci, userCount, atRiskSeen, regionNativeCount, usNonNativeCount]);
+  }, [seenSci, userCount, atRiskSeen, regionNativeCount, usNonNativeCount, speciesStats]);
 
   // Pre-sort the user's first-seen dates so we can derive WHEN a count-based
   // threshold was crossed: the Nth earliest first-seen date is the day the Nth
@@ -7368,6 +7413,10 @@ function BadgeDetailPopup({ group, tier, unlocked, earned, stats, onClose }) {
     howText = unlocked
       ? `Unlocked by recording ${FOWL_PLAY_THRESHOLD} non-native species (vagrants, escapees, and exotics) on checklists submitted within the US.`
       : `Record ${FOWL_PLAY_THRESHOLD} non-native species on US checklists — vagrants, escapees, and exotics, not birds seen abroad. You're at ${n} of ${FOWL_PLAY_THRESHOLD}.`;
+  } else if (isTrait && tier.key === 'outoftowner') {
+    howText = unlocked
+      ? `Unlocked by recording a species in a region outside its normal range — a true rarity for that area (e.g. a Gray Flycatcher in the Southeast).`
+      : `Record a species well outside its usual range — a vagrant turning up where it doesn't belong — to unlock this badge.`;
   } else if (isTrait) {
     const traitName = { pelagic: 'pelagic (open-ocean)', nocturnal: 'nocturnal', specialized: 'specialized / range-restricted' }[tier.key] || tier.key;
     howText = unlocked
