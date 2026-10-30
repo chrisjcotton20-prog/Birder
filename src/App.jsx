@@ -97,7 +97,7 @@ const NATIVE_SPECIES = [
   ["Montezuma Quail","Cyrtonyx montezumae"],
   ["Wild Turkey","Meleagris gallopavo"],
   ["Ruffed Grouse","Bonasa umbellus"],
-  ["Spruce Grouse","Falcipennis canadensis"],
+  ["Spruce Grouse","Canachites canadensis"],
   ["Willow Ptarmigan","Lagopus lagopus"],
   ["Rock Ptarmigan","Lagopus muta"],
   ["White-tailed Ptarmigan","Lagopus leucura"],
@@ -160,7 +160,7 @@ const NATIVE_SPECIES = [
   ["Broad-tailed Hummingbird","Selasphorus platycercus"],
   ["Broad-billed Hummingbird","Cynanthus latirostris"],
   ["White-eared Hummingbird","Basilinna leucotis"],
-  ["Violet-crowned Hummingbird","Leucolia violiceps"],
+  ["Violet-crowned Hummingbird","Ramosomyia violiceps"],
   ["Berylline Hummingbird","Saucerottia beryllina"],
   ["Buff-bellied Hummingbird","Amazilia yucatanensis"],
   ["Ridgway's Rail","Rallus obsoletus"],
@@ -171,7 +171,7 @@ const NATIVE_SPECIES = [
   ["Common Gallinule","Gallinula galeata"],
   ["Hawaiian Coot","Fulica alai"],
   ["American Coot","Fulica americana"],
-  ["Purple Gallinule","Porphyrio martinicus"],
+  ["Purple Gallinule","Porphyrio martinica"],
   ["Yellow Rail","Coturnicops noveboracensis"],
   ["Black Rail","Laterallus jamaicensis"],
   ["Limpkin","Aramus guarauna"],
@@ -234,7 +234,8 @@ const NATIVE_SPECIES = [
   ["Gray-tailed Tattler","Tringa brevipes"],
   ["Wandering Tattler","Tringa incana"],
   ["Lesser Yellowlegs","Tringa flavipes"],
-  ["Willet","Tringa semipalmata"],
+  ["Saltmarsh Willet","Tringa semipalmata"],
+  ["Prairie Willet","Tringa inornata"],
   ["Common Greenshank","Tringa nebularia"],
   ["Greater Yellowlegs","Tringa melanoleuca"],
   ["Wood Sandpiper","Tringa glareola"],
@@ -284,7 +285,7 @@ const NATIVE_SPECIES = [
   ["Western Gull","Larus occidentalis"],
   ["Yellow-footed Gull","Larus livens"],
   ["California Gull","Larus californicus"],
-  ["Herring Gull","Larus argentatus"],
+  ["American Herring Gull","Larus smithsonianus"],
   ["Iceland Gull","Larus glaucoides"],
   ["Lesser Black-backed Gull","Larus fuscus"],
   ["Slaty-backed Gull","Larus schistisagus"],
@@ -376,14 +377,14 @@ const NATIVE_SPECIES = [
   ["American White Pelican","Pelecanus erythrorhynchos"],
   ["Brown Pelican","Pelecanus occidentalis"],
   ["American Bittern","Botaurus lentiginosus"],
-  ["Least Bittern","Ixobrychus exilis"],
+  ["Least Bittern","Botaurus exilis"],
   ["Great Blue Heron","Ardea herodias"],
   ["Great Egret","Ardea alba"],
   ["Snowy Egret","Egretta thula"],
   ["Little Blue Heron","Egretta caerulea"],
   ["Tricolored Heron","Egretta tricolor"],
   ["Reddish Egret","Egretta rufescens"],
-  ["Cattle Egret","Bubulcus ibis"],
+  ["Western Cattle-Egret","Ardea ibis"],
   ["Green Heron","Butorides virescens"],
   ["Black-crowned Night-Heron","Nycticorax nycticorax"],
   ["Yellow-crowned Night-Heron","Nyctanassa violacea"],
@@ -464,7 +465,7 @@ const NATIVE_SPECIES = [
   ["Northern Flicker","Colaptes auratus"],
   ["Gilded Flicker","Colaptes chrysoides"],
   ["Pileated Woodpecker","Dryocopus pileatus"],
-  ["Crested Caracara","Caracara cheriway"],
+  ["Crested Caracara","Caracara plancus"],
   ["American Kestrel","Falco sparverius"],
   ["Merlin","Falco columbarius"],
   ["Aplomado Falcon","Falco femoralis"],
@@ -501,8 +502,7 @@ const NATIVE_SPECIES = [
   ["Hammond's Flycatcher","Empidonax hammondii"],
   ["Gray Flycatcher","Empidonax wrightii"],
   ["Dusky Flycatcher","Empidonax oberholseri"],
-  ["Pacific-slope Flycatcher","Empidonax difficilis"],
-  ["Cordilleran Flycatcher","Empidonax occidentalis"],
+  ["Western Flycatcher","Empidonax difficilis"],
   ["Buff-breasted Flycatcher","Empidonax fulvifrons"],
   ["Black Phoebe","Sayornis nigricans"],
   ["Eastern Phoebe","Sayornis phoebe"],
@@ -575,8 +575,8 @@ const NATIVE_SPECIES = [
   ["Rock Wren","Salpinctes obsoletus"],
   ["Canyon Wren","Catherpes mexicanus"],
   ["House Wren","Troglodytes aedon"],
-  ["Pacific Wren","Troglodytes pacificus"],
-  ["Winter Wren","Troglodytes hiemalis"],
+  ["Pacific Wren","Nannus pacificus"],
+  ["Winter Wren","Nannus hiemalis"],
   ["Sedge Wren","Cistothorus platensis"],
   ["Marsh Wren","Cistothorus palustris"],
   ["Carolina Wren","Thryothorus ludovicianus"],
@@ -592,7 +592,7 @@ const NATIVE_SPECIES = [
   ["Arctic Warbler","Phylloscopus borealis"],
   ["Wrentit","Chamaea fasciata"],
   ["Millerbird","Acrocephalus familiaris"],
-  ["Bluethroat","Cyanecula svecica"],
+  ["Bluethroat","Luscinia svecica"],
   ["Siberian Rubythroat","Calliope calliope"],
   ["Northern Wheatear","Oenanthe oenanthe"],
   ["Eastern Bluebird","Sialia sialis"],
@@ -633,7 +633,7 @@ const NATIVE_SPECIES = [
   ["American Pipit","Anthus rubescens"],
   ["Sprague's Pipit","Anthus spragueii"],
   ["Brambling","Fringilla montifringilla"],
-  ["Evening Grosbeak","Coccothraustes vespertinus"],
+  ["Evening Grosbeak","Hesperiphona vespertina"],
   ["Akikiki","Oreomystis bairdi"],
   ["Maui Alauahio","Paroreomyza montana"],
   ["Palila","Loxioides bailleui"],
@@ -658,8 +658,7 @@ const NATIVE_SPECIES = [
   ["House Finch","Haemorhous mexicanus"],
   ["Purple Finch","Haemorhous purpureus"],
   ["Cassin's Finch","Haemorhous cassinii"],
-  ["Common Redpoll","Acanthis flammea"],
-  ["Hoary Redpoll","Acanthis hornemanni"],
+  ["Redpoll","Acanthis flammea"],
   ["Red Crossbill","Loxia curvirostra"],
   ["Cassia Crossbill","Loxia sinesciuris"],
   ["White-winged Crossbill","Loxia leucoptera"],
@@ -680,7 +679,7 @@ const NATIVE_SPECIES = [
   ["Bachman's Sparrow","Peucaea aestivalis"],
   ["Grasshopper Sparrow","Ammodramus savannarum"],
   ["Olive Sparrow","Arremonops rufivirgatus"],
-  ["Five-striped Sparrow","Amphispiza quinquestriata"],
+  ["Five-striped Sparrow","Amphispizopsis quinquestriata"],
   ["Black-throated Sparrow","Amphispiza bilineata"],
   ["Lark Sparrow","Chondestes grammacus"],
   ["Lark Bunting","Calamospiza melanocorys"],
@@ -873,6 +872,22 @@ const SCI_ALIASES = {
   'Charadrius montanus': 'Anarhynchus montanus', // Mountain Plover
   'Charadrius mongolus': 'Anarhynchus mongolus', // Lesser Sand-Plover
   'Charadrius wilsonia': 'Anarhynchus wilsonia', // Wilson's Plover (already in list as Anarhynchus)
+
+  // --- 2025/2026 taxonomy updates: legacy/alt names -> current list keys ---
+  'Troglodytes hiemalis': 'Nannus hiemalis',       // Winter Wren (genus move)
+  'Troglodytes pacificus': 'Nannus pacificus',     // Pacific Wren (genus move)
+  'Larus argentatus': 'Larus smithsonianus',       // Herring Gull -> American Herring Gull
+  'Falcipennis canadensis': 'Canachites canadensis', // Spruce Grouse
+  'Leucolia violiceps': 'Ramosomyia violiceps',    // Violet-crowned Hummingbird
+  'Porphyrio martinicus': 'Porphyrio martinica',   // Purple Gallinule
+  'Ixobrychus exilis': 'Botaurus exilis',          // Least Bittern
+  'Caracara cheriway': 'Caracara plancus',         // Crested Caracara (re-lump)
+  'Cyanecula svecica': 'Luscinia svecica',         // Bluethroat
+  'Coccothraustes vespertinus': 'Hesperiphona vespertina', // Evening Grosbeak
+  'Amphispiza quinquestriata': 'Amphispizopsis quinquestriata', // Five-striped Sparrow
+  'Bubulcus ibis': 'Ardea ibis',                   // Cattle Egret -> Western Cattle-Egret
+  'Empidonax occidentalis': 'Empidonax difficilis', // Cordilleran -> Western Flycatcher (lump)
+  'Acanthis hornemanni': 'Acanthis flammea',       // Hoary Redpoll -> Redpoll (lump)
 };
 
 // Normalize an exported binomial to our canonical checklist name.
@@ -924,7 +939,7 @@ const FAMILY_BOUNDARIES = [
   ["Trogon elegans","Trogons"],
   ["Megaceryle torquata","Kingfishers"],
   ["Melanerpes lewis","Woodpeckers"],
-  ["Caracara cheriway","Caracaras & Falcons"],
+  ["Caracara plancus","Caracaras & Falcons"],
   ["Pachyramphus aglaiae","Becards & Tityras"],
   ["Camptostoma imberbe","Tyrant Flycatchers"],
   ["Lanius ludovicianus","Shrikes"],
@@ -945,7 +960,7 @@ const FAMILY_BOUNDARIES = [
   ["Phylloscopus borealis","Leaf Warblers"],
   ["Chamaea fasciata","Sylviid Warblers"],
   ["Acrocephalus familiaris","Reed Warblers"],
-  ["Cyanecula svecica","Old World Flycatchers & Chats"],
+  ["Luscinia svecica","Old World Flycatchers & Chats"],
   ["Sialia sialis","Thrushes"],
   ["Dumetella carolinensis","Mockingbirds & Thrashers"],
   ["Bombycilla garrulus","Waxwings"],
@@ -1073,7 +1088,7 @@ const CODE_3_SCI = new Set([
   "Loxops coccineus",
   "Plectrophenax hyperboreus",
   "Emberiza rustica",
-  "Amphispiza quinquestriata",
+  "Amphispizopsis quinquestriata",
   "Spindalis zena",
   "Molothrus bonariensis",
   "Setophaga pitiayumi",
@@ -1108,7 +1123,7 @@ const IUCN_STATUS = {
   // and were missing from the original list.
   "Podiceps auritus": "VU",           // Horned Grebe (uplisted 2015)
   "Tringa flavipes": "VU",            // Lesser Yellowlegs (uplisted 2020)
-  "Coccothraustes vespertinus": "VU", // Evening Grosbeak (uplisted 2018)
+  "Hesperiphona vespertina": "VU", // Evening Grosbeak (uplisted 2018)
   "Chaetura pelagica": "VU",          // Chimney Swift (uplisted 2018)
   "Calcarius ornatus": "VU",          // Chestnut-collared Longspur (uplisted 2020)
   // Additional VU species — verified against user-provided IUCN assessments export.
@@ -1274,19 +1289,19 @@ const SPECIALIZED_SCI = new Set([
   'Toxostoma redivivum',
   // SE Arizona / Southwest border specialties
   'Trogon elegans', 'Eugenes fulgens', 'Lampornis clemenciae',
-  'Cynanthus latirostris', 'Basilinna leucotis', 'Leucolia violiceps',
+  'Cynanthus latirostris', 'Basilinna leucotis', 'Ramosomyia violiceps',
   'Saucerottia beryllina', 'Pachyramphus aglaiae', 'Camptostoma imberbe',
   'Myiodynastes luteiventris', 'Myiarchus tuberculifer', 'Tyrannus crassirostris',
   'Megascops trichopsis', 'Glaucidium brasilianum', 'Micrathene whitneyi',
   'Cardellina rubrifrons', 'Myioborus pictus', 'Basileuterus rufifrons',
-  'Peucedramus taeniatus', 'Aimophila ruficeps', 'Amphispiza quinquestriata',
+  'Peucedramus taeniatus', 'Aimophila ruficeps', 'Amphispizopsis quinquestriata',
   'Peucaea carpalis', 'Aphelocoma wollweberi', 'Poecile sclateri',
   'Baeolophus wollweberi', 'Auriparus flaviceps', 'Toxostoma crissale',
   'Toxostoma lecontei', 'Spizella atrogularis', 'Vireo vicinior',
   // South Texas specialties
   'Pitangus sulphuratus', 'Icterus gularis', 'Icterus graduacauda',
   'Leptotila verreauxi', 'Ortalis vetula', 'Geranoaetus albicaudatus',
-  'Buteogallus anthracinus', 'Caracara cheriway', 'Falco femoralis',
+  'Buteogallus anthracinus', 'Caracara plancus', 'Falco femoralis',
   'Sporophila morelleti', 'Spindalis zena', 'Setophaga pitiayumi',
   'Arremonops rufivirgatus', 'Cyanocorax yncas',
   // Range-restricted breeders / endangered specialties
@@ -1329,7 +1344,7 @@ const BADGE_GROUPS = [
       { threshold: 500, name: 'Master Lister',   desc: '500 species' },
       { threshold: 600, name: 'Grand Naturalist', desc: '600 species' },
       { threshold: 700, name: 'Big Year Birder', desc: '700 species' },
-      { threshold: 774, name: 'Lord of the Wings', desc: 'Every native species' },
+      { threshold: NATIVE_SPECIES.length, name: 'Lord of the Wings', desc: 'Every native species' },
     ],
   },
   {
@@ -1532,7 +1547,7 @@ const SPECIES_MOVEMENT = {
   'Sturnella magna': 'partial',
   'Thalasseus elegans': 'partial',
   'Toxostoma rufum': 'partial',
-  'Troglodytes pacificus': 'partial',
+  'Nannus pacificus': 'partial',
   'Turdus migratorius': 'partial',
   'Vireo griseus': 'partial',
   'Zenaida macroura': 'partial',
@@ -1576,6 +1591,7 @@ const SPECIES_MOVEMENT = {
   'Setophaga tigrina': 'migratory',
   'Sphyrapicus varius': 'migratory',
   'Tringa semipalmata': 'migratory',
+  'Tringa inornata': 'migratory',  // Prairie Willet
   'Tyrannus tyrannus': 'migratory',
   'Tyrannus vociferans': 'migratory',
   'Zonotrichia albicollis': 'migratory',
@@ -1625,7 +1641,7 @@ const SPECIES_MOVEMENT = {
   'Nyctidromus albicollis': 'resident',  // Common Pauraque
   'Synthliboramphus craveri': 'resident',  // Craveri's Murrelet
   'Aethia cristatella': 'resident',  // Crested Auklet
-  'Caracara cheriway': 'resident',  // Crested Caracara
+  'Caracara plancus': 'resident',  // Crested Caracara
   'Toxostoma crissale': 'resident',  // Crissal Thrasher
   'Toxostoma curvirostre': 'resident',  // Curve-billed Thrasher
   'Dendragapus obscurus': 'resident',  // Dusky Grouse
@@ -1731,9 +1747,9 @@ const SPECIES_MOVEMENT = {
   'Rostrhamus sociabilis': 'resident',  // Snail Kite
   'Dendragapus fuliginosus': 'resident',  // Sooty Grouse
   'Strix occidentalis': 'resident',  // Spotted Owl
-  'Falcipennis canadensis': 'resident',  // Spruce Grouse
+  'Canachites canadensis': 'resident',  // Spruce Grouse
   'Agelaius tricolor': 'resident',  // Tricolored Blackbird
-  'Leucolia violiceps': 'resident',  // Violet-crowned Hummingbird
+  'Ramosomyia violiceps': 'resident',  // Violet-crowned Hummingbird
   'Megascops kennicottii': 'resident',  // Western Screech-Owl
   'Spindalis zena': 'resident',  // Western Spindalis
   'Aethia pygmaea': 'resident',  // Whiskered Auklet
@@ -1777,7 +1793,7 @@ const SPECIES_MOVEMENT = {
   'Athene cunicularia': 'partial',  // Burrowing Owl
   'Haemorhous cassinii': 'partial',  // Cassin's Finch
   'Peucaea cassinii': 'partial',  // Cassin's Sparrow
-  'Bubulcus ibis': 'partial',  // Cattle Egret
+  'Ardea ibis': 'partial',  // Cattle Egret
   'Petrochelidon fulva': 'partial',  // Cave Swallow
   'Corvus cryptoleucus': 'partial',  // Chihuahuan Raven
   'Aechmophorus clarkii': 'partial',  // Clark's Grebe
@@ -1791,10 +1807,10 @@ const SPECIES_MOVEMENT = {
   'Myiarchus tuberculifer': 'partial',  // Dusky-capped Flycatcher
   'Podiceps nigricollis': 'partial',  // Eared Grebe
   'Trogon elegans': 'partial',  // Elegant Trogon
-  'Coccothraustes vespertinus': 'partial',  // Evening Grosbeak
+  'Hesperiphona vespertina': 'partial',  // Evening Grosbeak
   'Buteo regalis': 'partial',  // Ferruginous Hawk
   'Spizella pusilla': 'partial',  // Field Sparrow
-  'Amphispiza quinquestriata': 'partial',  // Five-striped Sparrow
+  'Amphispizopsis quinquestriata': 'partial',  // Five-striped Sparrow
   'Piranga bidentata': 'partial',  // Flame-colored Tanager
   'Hydrobates furcatus': 'partial',  // Fork-tailed Storm-Petrel
   'Dendrocygna bicolor': 'partial',  // Fulvous Whistling-Duck
@@ -1812,7 +1828,7 @@ const SPECIES_MOVEMENT = {
   'Falco rusticolus': 'partial',  // Gyrfalcon
   'Centronyx henslowii': 'partial',  // Henslow's Sparrow
   'Piranga flava': 'partial',  // Hepatic Tanager
-  'Larus argentatus': 'partial',  // Herring Gull
+  'Larus smithsonianus': 'partial',  // Herring Gull
   'Icterus cucullatus': 'partial',  // Hooded Oriole
   'Eremophila alpestris': 'partial',  // Horned Lark
   'Fratercula corniculata': 'partial',  // Horned Puffin
@@ -1843,7 +1859,7 @@ const SPECIES_MOVEMENT = {
   'Spinus pinus': 'partial',  // Pine Siskin
   'Vireo plumbeus': 'partial',  // Plumbeous Vireo
   'Falco mexicanus': 'partial',  // Prairie Falcon
-  'Porphyrio martinicus': 'partial',  // Purple Gallinule
+  'Porphyrio martinica': 'partial',  // Purple Gallinule
   'Alca torda': 'partial',  // Razorbill
   'Phaethon aethereus': 'partial',  // Red-billed Tropicbird
   'Sitta canadensis': 'partial',  // Red-breasted Nuthatch
@@ -1886,7 +1902,7 @@ const SPECIES_MOVEMENT = {
   'Zenaida asiatica': 'partial',  // White-winged Dove
   'Sphyrapicus thyroideus': 'partial',  // Williamson's Sapsucker
   'Gallinago delicata': 'partial',  // Wilson's Snipe
-  'Troglodytes hiemalis': 'partial',  // Winter Wren
+  'Nannus hiemalis': 'partial',  // Winter Wren
   'Aix sponsa': 'partial',  // Wood Duck
   'Mycteria americana': 'partial',  // Wood Stork
   'Nyctanassa violacea': 'partial',  // Yellow-crowned Night-Heron
@@ -1941,7 +1957,7 @@ const SPECIES_MOVEMENT = {
   'Vireo solitarius': 'migratory',  // Blue-headed Vireo
   'Spatula discors': 'migratory',  // Blue-winged Teal
   'Vermivora cyanoptera': 'migratory',  // Blue-winged Warbler
-  'Cyanecula svecica': 'migratory',  // Bluethroat
+  'Luscinia svecica': 'migratory',  // Bluethroat
   'Dolichonyx oryzivorus': 'migratory',  // Bobolink
   'Bombycilla garrulus': 'migratory',  // Bohemian Waxwing
   'Chroicocephalus philadelphia': 'migratory',  // Bonaparte's Gull
@@ -1980,7 +1996,6 @@ const SPECIES_MOVEMENT = {
   'Sterna hirundo': 'migratory',  // Common Tern
   'Oporornis agilis': 'migratory',  // Connecticut Warbler
   'Pterodroma cookii': 'migratory',  // Cook's Petrel
-  'Empidonax occidentalis': 'migratory',  // Cordilleran Flycatcher
   'Calonectris diomedea': 'migratory',  // Cory's Shearwater
   'Calidris ferruginea': 'migratory',  // Curlew Sandpiper
   'Spiza americana': 'migratory',  // Dickcissel
@@ -2023,7 +2038,6 @@ const SPECIES_MOVEMENT = {
   'Histrionicus histrionicus': 'migratory',  // Harlequin Duck
   'Zonotrichia querula': 'migratory',  // Harris's Sparrow
   'Setophaga occidentalis': 'migratory',  // Hermit Warbler
-  'Acanthis hornemanni': 'migratory',  // Hoary Redpoll
   'Podiceps auritus': 'migratory',  // Horned Grebe
   'Limosa haemastica': 'migratory',  // Hudsonian Godwit
   'Larus glaucoides': 'migratory',  // Iceland Gull
@@ -2037,7 +2051,7 @@ const SPECIES_MOVEMENT = {
   'Passerina amoena': 'migratory',  // Lazuli Bunting
   'Ammospiza leconteii': 'migratory',  // LeConte's Sparrow
   'Hydrobates leucorhous': 'migratory',  // Leach's Storm-Petrel
-  'Ixobrychus exilis': 'migratory',  // Least Bittern
+  'Botaurus exilis': 'migratory',  // Least Bittern
   'Hydrobates microsoma': 'migratory',  // Least Storm-Petrel
   'Sternula antillarum': 'migratory',  // Least Tern
   'Larus fuscus': 'migratory',  // Lesser Black-backed Gull
@@ -2307,7 +2321,7 @@ const SPECIES_RANGE = {
   'Dryobates nuttallii': ['cal'],  // Nuttall's Woodpecker
   'Baeolophus inornatus': ['cal', 'pnw'],  // Oak Titmouse
   'Pandion haliaetus': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Osprey
-  'Troglodytes pacificus': ['pnw', 'cal', 'ak'],  // Pacific Wren
+  'Nannus pacificus': ['pnw', 'cal', 'ak'],  // Pacific Wren
   'Passerina ciris': ['sw', 'sp', 'se'],  // Painted Bunting
   'Setophaga palmarum': ['ak', 'mw', 'ne', 'se'],  // Palm Warbler
   'Urile pelagicus': ['pnw', 'cal', 'ak'],  // Pelagic Cormorant
@@ -2355,6 +2369,7 @@ const SPECIES_RANGE = {
   'Aeronautes saxatalis': ['pnw', 'cal', 'sw', 'rm'],  // White-throated Swift
   'Meleagris gallopavo': ['pnw', 'cal', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Wild Turkey
   'Tringa semipalmata': ['pnw', 'cal', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Willet
+  'Tringa inornata': ['pnw', 'cal', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Prairie Willet
   'Anarhynchus wilsonia': ['sp', 'se'],  // Wilson's Plover
   'Hylocichla mustelina': ['gp', 'sp', 'mw', 'ne', 'se'],  // Wood Thrush
   'Chamaea fasciata': ['pnw', 'cal'],  // Wrentit
@@ -2453,7 +2468,7 @@ const SPECIES_RANGE = {
   'Lampornis clemenciae': ['sw'],  // Blue-throated Mountain-gem
   'Spatula discors': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Blue-winged Teal
   'Vermivora cyanoptera': ['gp', 'sp', 'mw', 'ne', 'se'],  // Blue-winged Warbler
-  'Cyanecula svecica': ['ak'],  // Bluethroat
+  'Luscinia svecica': ['ak'],  // Bluethroat
   'Dolichonyx oryzivorus': ['pnw', 'rm', 'gp', 'mw', 'ne'],  // Bobolink
   'Bombycilla garrulus': ['ak', 'pnw', 'rm', 'gp', 'mw', 'ne'],  // Bohemian Waxwing
   'Chroicocephalus philadelphia': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Bonaparte's Gull
@@ -2499,7 +2514,7 @@ const SPECIES_RANGE = {
   'Haemorhous cassinii': ['pnw', 'cal', 'sw', 'rm', 'gp'],  // Cassin's Finch
   'Peucaea cassinii': ['sw', 'gp', 'sp'],  // Cassin's Sparrow
   'Vireo cassinii': ['pnw', 'cal', 'sw', 'rm'],  // Cassin's Vireo
-  'Bubulcus ibis': ['cal', 'sw', 'sp', 'mw', 'ne', 'se'],  // Cattle Egret
+  'Ardea ibis': ['cal', 'sw', 'sp', 'mw', 'ne', 'se'],  // Cattle Egret
   'Petrochelidon fulva': ['sw', 'sp', 'se'],  // Cave Swallow
   'Setophaga cerulea': ['gp', 'sp', 'mw', 'ne', 'se'],  // Cerulean Warbler
   'Calcarius ornatus': ['rm', 'gp', 'sp'],  // Chestnut-collared Longspur
@@ -2531,12 +2546,11 @@ const SPECIES_RANGE = {
   'Sterna hirundo': ['pnw', 'cal', 'gp', 'mw', 'ne', 'se'],  // Common Tern
   'Oporornis agilis': ['rm', 'gp', 'mw', 'ne'],  // Connecticut Warbler
   'Pterodroma cookii': ['cal'],  // Cook's Petrel
-  'Empidonax occidentalis': ['sw', 'rm'],  // Cordilleran Flycatcher
   'Calonectris diomedea': ['ne', 'se'],  // Cory's Shearwater
   'Tyrannus couchii': ['sp'],  // Couch's Kingbird
   'Synthliboramphus craveri': ['cal'],  // Craveri's Murrelet
   'Aethia cristatella': ['ak'],  // Crested Auklet
-  'Caracara cheriway': ['cal', 'sw', 'sp', 'se'],  // Crested Caracara
+  'Caracara plancus': ['cal', 'sw', 'sp', 'se'],  // Crested Caracara
   'Toxostoma crissale': ['cal', 'sw'],  // Crissal Thrasher
   'Calidris ferruginea': ['ak'],  // Curlew Sandpiper
   'Toxostoma curvirostre': ['sw', 'sp'],  // Curve-billed Thrasher
@@ -2555,13 +2569,13 @@ const SPECIES_RANGE = {
   'Micrathene whitneyi': ['sw'],  // Elf Owl
   'Anser canagicus': ['ak'],  // Emperor Goose
   'Mareca penelope': ['pnw', 'cal', 'ak', 'ne'],  // Eurasian Wigeon
-  'Coccothraustes vespertinus': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'mw', 'ne'],  // Evening Grosbeak
+  'Hesperiphona vespertina': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'mw', 'ne'],  // Evening Grosbeak
   'Turdus obscurus': ['ak'],  // Eyebrowed Thrush
   'Pterodroma feae': ['ne'],  // Fea's Petrel
   'Buteo regalis': ['cal', 'sw', 'rm', 'gp', 'sp'],  // Ferruginous Hawk
   'Glaucidium brasilianum': ['sw', 'sp'],  // Ferruginous Pygmy-Owl
   'Spizella pusilla': ['gp', 'sp', 'mw', 'ne', 'se'],  // Field Sparrow
-  'Amphispiza quinquestriata': ['sw'],  // Five-striped Sparrow
+  'Amphispizopsis quinquestriata': ['sw'],  // Five-striped Sparrow
   'Piranga bidentata': ['sw'],  // Flame-colored Tanager
   'Psiloscops flammeolus': ['pnw', 'cal', 'sw', 'rm'],  // Flammulated Owl
   'Ardenna carneipes': ['pnw', 'cal'],  // Flesh-footed Shearwater
@@ -2634,8 +2648,7 @@ const SPECIES_RANGE = {
   'Centronyx henslowii': ['gp', 'mw', 'ne', 'se'],  // Henslow's Sparrow
   'Piranga flava': ['sw'],  // Hepatic Tanager
   'Setophaga occidentalis': ['pnw', 'cal'],  // Hermit Warbler
-  'Larus argentatus': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Herring Gull
-  'Acanthis hornemanni': ['ak'],  // Hoary Redpoll
+  'Larus smithsonianus': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Herring Gull
   'Icterus cucullatus': ['cal', 'sw', 'sp'],  // Hooded Oriole
   'Chondrohierax uncinatus': ['sp'],  // Hook-billed Kite
   'Podiceps auritus': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Horned Grebe
@@ -2671,7 +2684,7 @@ const SPECIES_RANGE = {
   'Toxostoma lecontei': ['cal', 'sw'],  // LeConte's Thrasher
   'Hydrobates leucorhous': ['pnw', 'cal', 'ak', 'ne'],  // Leach's Storm-Petrel
   'Aethia pusilla': ['ak'],  // Least Auklet
-  'Ixobrychus exilis': ['cal', 'sp', 'mw', 'ne', 'se'],  // Least Bittern
+  'Botaurus exilis': ['cal', 'sp', 'mw', 'ne', 'se'],  // Least Bittern
   'Tachybaptus dominicus': ['sw', 'sp', 'se'],  // Least Grebe
   'Hydrobates microsoma': ['cal'],  // Least Storm-Petrel
   'Sternula antillarum': ['cal', 'sw', 'gp', 'sp', 'mw', 'ne', 'se'],  // Least Tern
@@ -2778,7 +2791,7 @@ const SPECIES_RANGE = {
   'Falco mexicanus': ['pnw', 'cal', 'sw', 'rm', 'gp', 'sp'],  // Prairie Falcon
   'Setophaga discolor': ['gp', 'sp', 'mw', 'ne', 'se'],  // Prairie Warbler
   'Myadestes palmeri': ['hi'],  // Puaiohi
-  'Porphyrio martinicus': ['sp', 'se'],  // Purple Gallinule
+  'Porphyrio martinica': ['sp', 'se'],  // Purple Gallinule
   'Progne subis': ['pnw', 'cal', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Purple Martin
   'Calidris maritima': ['ne', 'se'],  // Purple Sandpiper
   'Sitta pygmaea': ['pnw', 'cal', 'sw', 'rm'],  // Pygmy Nuthatch
@@ -2875,7 +2888,7 @@ const SPECIES_RANGE = {
   'Actitis macularius': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Spotted Sandpiper
   'Pipilo maculatus': ['pnw', 'cal', 'sw', 'rm', 'gp'],  // Spotted Towhee
   'Anthus spragueii': ['gp', 'sp'],  // Sprague's Pipit
-  'Falcipennis canadensis': ['pnw', 'ak', 'rm', 'mw', 'ne'],  // Spruce Grouse
+  'Canachites canadensis': ['pnw', 'ak', 'rm', 'mw', 'ne'],  // Spruce Grouse
   'Polysticta stelleri': ['ak'],  // Steller's Eider
   'Calidris himantopus': ['ak', 'gp', 'sp', 'mw', 'ne', 'se'],  // Stilt Sandpiper
   'Myiodynastes luteiventris': ['sw'],  // Sulphur-bellied Flycatcher
@@ -2910,7 +2923,7 @@ const SPECIES_RANGE = {
   'Chaetura vauxi': ['pnw', 'cal', 'ak'],  // Vaux's Swift
   'Catharus fuscescens': ['pnw', 'rm', 'gp', 'mw', 'ne', 'se'],  // Veery
   'Pooecetes gramineus': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Vesper Sparrow
-  'Leucolia violiceps': ['sw'],  // Violet-crowned Hummingbird
+  'Ramosomyia violiceps': ['sw'],  // Violet-crowned Hummingbird
   'Tachycineta thalassina': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp'],  // Violet-green Swallow
   'Rallus limicola': ['pnw', 'cal', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Virginia Rail
   'Leiothlypis virginiae': ['sw', 'rm'],  // Virginia's Warbler
@@ -2956,7 +2969,7 @@ const SPECIES_RANGE = {
   'Gallinago delicata': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Wilson's Snipe
   'Oceanites oceanicus': ['ne', 'se'],  // Wilson's Storm-Petrel
   'Cardellina pusilla': ['pnw', 'cal', 'ak', 'sw', 'rm', 'gp', 'mw', 'ne', 'se'],  // Wilson's Warbler
-  'Troglodytes hiemalis': ['rm', 'gp', 'mw', 'ne', 'se'],  // Winter Wren
+  'Nannus hiemalis': ['rm', 'gp', 'mw', 'ne', 'se'],  // Winter Wren
   'Aix sponsa': ['pnw', 'cal', 'sw', 'rm', 'gp', 'sp', 'mw', 'ne', 'se'],  // Wood Duck
   'Tringa glareola': ['ak'],  // Wood Sandpiper
   'Mycteria americana': ['sp', 'se'],  // Wood Stork
